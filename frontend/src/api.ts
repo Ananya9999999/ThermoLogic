@@ -10,12 +10,28 @@ function authHeaders(): HeadersInit {
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || res.statusText || "Request failed");
+    const detail = body.detail;
+    const msg = typeof detail === "string" ? detail : res.statusText || "Request failed";
+    throw new Error(msg);
   }
   return res.json();
 }
 
 export type User = { id: number; email: string; name: string; created_at?: string };
+
+export type Appliance = {
+  id: number;
+  user_id: number;
+  name: string;
+  kind: string;
+  room: string;
+  tonnage: number;
+  iseer: number;
+  t_min: number;
+  t_max: number;
+  enabled: boolean;
+  meta?: Record<string, unknown>;
+};
 
 export async function signup(email: string, name: string, password: string) {
   return handle<{ access_token: string; user: User }>(
@@ -38,20 +54,68 @@ export async function login(email: string, password: string) {
 }
 
 export async function me() {
-  return handle<User>(
-    await fetch(`${API_URL}/api/auth/me`, { headers: authHeaders() })
+  return handle<User>(await fetch(`${API_URL}/api/auth/me`, { headers: authHeaders() }));
+}
+
+export async function listAppliances() {
+  return handle<Appliance[]>(await fetch(`${API_URL}/api/appliances`, { headers: authHeaders() }));
+}
+
+export async function createAppliance(data: Partial<Appliance> & { name: string }) {
+  return handle<Appliance>(
+    await fetch(`${API_URL}/api/appliances`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    })
   );
 }
 
-export async function fetchReference() {
-  return handle<Record<string, unknown>>(
-    await fetch(`${API_URL}/api/reference`)
+export async function updateAppliance(id: number, data: Partial<Appliance>) {
+  return handle<Appliance>(
+    await fetch(`${API_URL}/api/appliances/${id}`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    })
   );
 }
 
-export async function fetchImpact() {
+export async function deleteAppliance(id: number) {
+  return handle<{ ok: boolean }>(
+    await fetch(`${API_URL}/api/appliances/${id}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    })
+  );
+}
+
+export async function fetchDashboard(mode: string = "heatwave", hours: number = 48) {
+  return handle<{
+    user: User;
+    appliances: Appliance[];
+    aggregate: Record<string, number | string>;
+    simulations: {
+      appliance: { id: number; name: string; kind: string; room: string; tonnage: number };
+      metrics: Record<string, number>;
+      points: Record<string, number>[];
+      t_min: number;
+      t_max: number;
+    }[];
+  }>(
+    await fetch(`${API_URL}/api/dashboard?mode=${mode}&hours=${hours}`, {
+      headers: authHeaders(),
+    })
+  );
+}
+
+export async function runSimulate(params: Record<string, unknown>) {
   return handle<Record<string, unknown>>(
-    await fetch(`${API_URL}/api/impact`)
+    await fetch(`${API_URL}/api/simulate`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(params),
+    })
   );
 }
 
@@ -87,28 +151,8 @@ export async function runCalculator(params: CalcParams) {
   );
 }
 
-export type SimParams = {
-  mode: "heatwave" | "smooth";
-  away?: boolean;
-  comfort_nudge?: number;
-  hours?: number;
-  t_min?: number;
-  t_max?: number;
-  r_thermal?: number;
-  c_thermal?: number;
-  u_cool_max?: number;
-  price_offpeak?: number;
-  price_peak?: number;
-};
-
-export async function runSimulate(params: SimParams) {
-  return handle<Record<string, unknown>>(
-    await fetch(`${API_URL}/api/simulate`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(params),
-    })
-  );
+export async function fetchImpact() {
+  return handle<Record<string, unknown>>(await fetch(`${API_URL}/api/impact`));
 }
 
 export { API_URL };

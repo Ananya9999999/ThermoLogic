@@ -18,7 +18,7 @@ export default function Signup() {
     setBusy(true);
     try {
       await signup(email, name, password);
-      navigate("/calculator");
+      navigate("/app");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
     } finally {

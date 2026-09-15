@@ -1,7 +1,7 @@
 """Request/response schemas."""
 
 from typing import Any, Literal, Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 
 class WeatherPoint(BaseModel):
@@ -32,12 +32,13 @@ class SimRequest(BaseModel):
     hours: int = Field(168, ge=24, le=336)
     t_min: Optional[float] = Field(None, ge=16, le=28)
     t_max: Optional[float] = Field(None, ge=20, le=32)
-    # Building parameters (user-tunable)
     r_thermal: Optional[float] = Field(None, ge=0.5, le=10)
     c_thermal: Optional[float] = Field(None, ge=1, le=30)
     u_cool_max: Optional[float] = Field(None, ge=0.5, le=8)
     price_offpeak: Optional[float] = Field(None, ge=1, le=20)
     price_peak: Optional[float] = Field(None, ge=1, le=30)
+    appliance_id: Optional[int] = None
+    tonnage: Optional[float] = Field(None, ge=0.5, le=5)
 
 
 class TrajectoryPoint(BaseModel):
@@ -74,6 +75,7 @@ class SimResponse(BaseModel):
     points: list[TrajectoryPoint]
     demo_script: list[str]
     parameters_used: dict[str, Any] = {}
+    appliance: Optional[dict[str, Any]] = None
 
 
 class HealthResponse(BaseModel):
@@ -95,7 +97,6 @@ class ActuationResponse(BaseModel):
     command: Optional[str] = None
 
 
-# --- Auth ---
 class SignupRequest(BaseModel):
     email: str = Field(..., min_length=5, max_length=120)
     name: str = Field(..., min_length=1, max_length=80)
@@ -120,7 +121,6 @@ class AuthResponse(BaseModel):
     user: UserOut
 
 
-# --- Calculator ---
 class CalculatorRequest(BaseModel):
     tonnage: float = Field(1.5, ge=0.75, le=3.0)
     iseer: float = Field(3.8, ge=2.5, le=6.0)
@@ -141,3 +141,53 @@ class CalculatorResponse(BaseModel):
     saved_inr_year: float
     co2_tons_year: float
     assumptions: dict[str, Any]
+
+
+# Appliances
+ApplianceKind = Literal["ac", "heater", "heat_pump", "fan_coil"]
+
+
+class ApplianceCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+    kind: ApplianceKind = "ac"
+    room: str = Field("Living room", max_length=80)
+    tonnage: float = Field(1.5, ge=0.5, le=5.0)
+    iseer: float = Field(3.8, ge=2.0, le=7.0)
+    t_min: float = Field(22.0, ge=16, le=28)
+    t_max: float = Field(26.0, ge=20, le=32)
+    enabled: bool = True
+    meta: dict[str, Any] = {}
+
+
+class ApplianceUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=80)
+    kind: Optional[ApplianceKind] = None
+    room: Optional[str] = None
+    tonnage: Optional[float] = Field(None, ge=0.5, le=5.0)
+    iseer: Optional[float] = Field(None, ge=2.0, le=7.0)
+    t_min: Optional[float] = None
+    t_max: Optional[float] = None
+    enabled: Optional[bool] = None
+    meta: Optional[dict[str, Any]] = None
+
+
+class ApplianceOut(BaseModel):
+    id: int
+    user_id: int
+    name: str
+    kind: str
+    room: str
+    tonnage: float
+    iseer: float
+    t_min: float
+    t_max: float
+    enabled: bool
+    meta: dict[str, Any] = {}
+    created_at: Optional[str] = None
+
+
+class DashboardResponse(BaseModel):
+    user: UserOut
+    appliances: list[ApplianceOut]
+    aggregate: dict[str, Any]
+    simulations: list[dict[str, Any]]

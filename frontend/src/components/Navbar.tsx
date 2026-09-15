@@ -3,41 +3,45 @@ import { Thermometer, LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "./Navbar.css";
 
-const links = [
-  { to: "/", label: "Home" },
-  { to: "/demo", label: "Live Demo" },
-  { to: "/calculator", label: "Calculator" },
-  { to: "/impact", label: "Impact" },
-  { to: "/about", label: "About Us" },
-  { to: "/terms", label: "Terms and Conditions" },
-];
-
 export default function Navbar() {
   const { user, logout, loading } = useAuth();
 
   return (
     <header className="navbar">
       <div className="navbar-inner container">
-        <NavLink to="/" className="brand">
+        <Link to={user ? "/app" : "/"} className="brand">
           <span className="brand-icon">
             <Thermometer size={20} strokeWidth={2.2} />
           </span>
           <span className="brand-text">ThermoLogic</span>
-        </NavLink>
-        <nav className="nav-links">
-          {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.to === "/"}
-              className={({ isActive }) =>
-                isActive ? "nav-link active" : "nav-link"
-              }
-            >
-              {l.label}
+        </Link>
+
+        {user ? (
+          <nav className="nav-links">
+            <NavLink to="/app" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              Live dashboard
             </NavLink>
-          ))}
-        </nav>
+            <NavLink to="/impact" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              Impact
+            </NavLink>
+            <NavLink to="/about" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              About Us
+            </NavLink>
+            <NavLink to="/terms" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              Terms and Conditions
+            </NavLink>
+          </nav>
+        ) : (
+          <nav className="nav-links">
+            <NavLink to="/" end className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              Home
+            </NavLink>
+            <NavLink to="/terms" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              Terms and Conditions
+            </NavLink>
+          </nav>
+        )}
+
         <div className="nav-auth">
           {!loading && user ? (
             <>
