@@ -77,7 +77,7 @@ def get_settings() -> Settings:
         default_city=os.getenv("DEFAULT_CITY", "Bengaluru"),
         default_lat=_float("DEFAULT_LAT", 12.9716),
         default_lon=_float("DEFAULT_LON", 77.5946),
-        use_live_weather=_bool("USE_LIVE_WEATHER", False),
+        use_live_weather=_bool("USE_LIVE_WEATHER", True),
         actuation_enabled=_bool("ACTUATION_ENABLED", False),
         cors_origins=os.getenv(
             "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
