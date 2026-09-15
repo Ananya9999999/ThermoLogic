@@ -1,0 +1,120 @@
+.arch-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.page-header h1 {
+  font-size: 1.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stage-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.stage {
+  width: 180px;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: center;
+  padding: 1.15rem 1rem;
+}
+
+.stage-icon {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 0.25rem;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stage h3 {
+  font-size: 0.95rem;
+}
+
+.stage p {
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.arrow {
+  color: var(--text-soft);
+  flex-shrink: 0;
+}
+
+.humidity-callout {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  background: var(--accent-soft);
+  border-color: #99f6e4;
+}
+
+.hum-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: white;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.humidity-callout h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+}
+
+.humidity-callout p {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.next-steps h2 {
+  font-size: 1.15rem;
+  margin-bottom: 0.75rem;
+}
+
+.next-steps ul {
+  margin-left: 1.2rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.next-steps li {
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .pipeline {
+    flex-direction: column;
+    align-items: center;
+  }
+  .arrow {
+    transform: rotate(90deg);
+  }
+  .stage {
+    width: 100%;
+    max-width: 320px;
+    min-height: auto;
+  }
+}

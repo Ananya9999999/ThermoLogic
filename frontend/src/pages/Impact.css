@@ -1,0 +1,93 @@
+.impact-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.page-header h1 {
+  font-size: 1.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.impact-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+
+.icon-wrap.teal {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.icon-wrap.green {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.impact-card h2 {
+  font-size: 1rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.big-num {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.impact-card p {
+  font-size: 0.9rem;
+}
+
+.tag {
+  margin-top: 0.5rem;
+  align-self: flex-start;
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+}
+
+.math-card h2 {
+  font-size: 1.15rem;
+  margin-bottom: 0.85rem;
+}
+
+.math-card ul {
+  margin-left: 1.2rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.math-card li {
+  margin-bottom: 0.55rem;
+}
+
+@media (max-width: 700px) {
+  .impact-grid {
+    grid-template-columns: 1fr;
+  }
+}
