@@ -1,16 +1,20 @@
 """
-Thermal simulation: fair comparison of baseline deadband thermostat vs planning controller.
+Thermal simulation: baseline deadband vs ThermoLogic predictive + humidity-aware controller.
 
-Both see the same outdoor trajectory, R/C, gains, comfort band, and power limits.
-Only the decision logic differs — matches the project pitch.
+Key features (v0.4):
+- Heat Index ("feels like") is the primary comfort metric for the smart controller.
+- Setpoint-shift: raise dry-bulb target when RH is high (save compressor energy).
+- Dry / low-fan latent bias instead of over-cooling.
+- Hysteresis on the feels-like band.
+- Short-horizon cost-aware planning (tariff + comfort).
 """
 
 from __future__ import annotations
 
-import math
 from typing import Sequence
 
 from .config import Settings
+from .heat_index import calculate_heat_index, comfort_preference_to_band
 from .models import (
     SimMetrics,
     SimResponse,
@@ -20,7 +24,6 @@ from .models import (
 
 
 def _internal_gains(hour: int) -> float:
-    """Simple occupancy-ish internal gain (kW)."""
     hod = hour % 24
     if 7 <= hod <= 9 or 18 <= hod <= 22:
         return 0.35
@@ -41,19 +44,12 @@ def baseline_reactive_thermostat(
     u_heat_max: float,
     u_cool_max: float,
 ) -> tuple[list[float], list[float], list[float]]:
-    """
-    Deadband hysteresis thermostat (the fair baseline).
-
-    - Waits for a band breach before acting
-    - Bang-bang full power
-    - Holds mode until midpoint of comfort band (anti short-cycle)
-    """
+    """Classic deadband hysteresis thermostat (fair reactive baseline)."""
     n = len(t_out)
     t_in = [0.0] * n
-    u = [0.0] * n  # signed: +heat, -cool magnitude stored separately below
     u_cool = [0.0] * n
     u_heat = [0.0] * n
-    mode = 0  # -1 cool, 0 idle, +1 heat
+    mode = 0
     t = t_in0
     mid = (t_min + t_max) / 2.0
 
@@ -71,9 +67,7 @@ def baseline_reactive_thermostat(
         uc = u_cool_max if mode == -1 else 0.0
         u_heat[k] = uh
         u_cool[k] = uc
-        u[k] = uh + uc  # total HVAC power for energy accounting
 
-        # Euler step: C dT/dt = (T_out - T_in)/R + gains - cool + heat
         dtdt = (t_out[k] - t) / r + q_gains[k] + uh - uc
         t = t + dt * dtdt / c
         t_in[k] = t
@@ -81,118 +75,168 @@ def baseline_reactive_thermostat(
     return t_in, u_cool, u_heat
 
 
-def mpc_style_controller(
+def humidity_aware_controller(
     t_in0: float,
     t_out: Sequence[float],
     q_gains: Sequence[float],
     prices: Sequence[float],
-    t_min: float,
-    t_max: float,
+    rh_out: Sequence[float],
+    hi_min: float,
+    hi_max: float,
     r: float,
     c: float,
     dt: float,
     u_heat_max: float,
     u_cool_max: float,
     horizon: int = 6,
-) -> tuple[list[float], list[float], list[float]]:
+) -> tuple[list[float], list[float], list[float], list[float], list[str]]:
     """
-    Discrete short-horizon planner: try a few cool/heat levels, pick the
-    lowest-cost action that keeps predicted temp inside the band.
-    Uses less energy than bang-bang by modulating and shifting off peak.
+    Predictive + humidity-aware controller.
+    Primary metric: Heat Index. High RH → setpoint shift + dry bias.
     """
     n = len(t_out)
     t_in = [0.0] * n
     u_cool = [0.0] * n
     u_heat = [0.0] * n
+    rh_in = [0.0] * n
+    modes: list[str] = ["idle"] * n
+
     t = t_in0
+    rh = 55.0
+    mode = "idle"
     cool_levels = [0.0, 0.25, 0.5, 0.75, 1.0]
     heat_levels = [0.0, 0.35, 0.7, 1.0]
 
+    hi_enter_high = hi_max + 0.3
+    hi_exit_high = hi_max - 0.6
+    hi_enter_low = hi_min - 0.3
+    hi_exit_low = hi_min + 0.6
+
     for k in range(n):
+        outdoor_pull = 0.08 * (rh_out[k] - rh)
+        if mode in ("cool", "dry"):
+            latent = 0.45 if mode == "dry" else 0.28
+            prev_uc = u_cool[k - 1] if k > 0 else 0.5
+            rh -= latent * (prev_uc / max(u_cool_max, 0.1))
+        rh += outdoor_pull + 0.04
+        rh = max(35.0, min(75.0, rh))
+        rh_in[k] = round(rh, 1)
+
+        feels = calculate_heat_index(t, rh)
+
+        if rh > 62.0:
+            t_target_max = 26.5
+            prefer_dry = True
+        elif rh > 55.0:
+            t_target_max = 25.8
+            prefer_dry = True
+        else:
+            t_target_max = 25.0
+            prefer_dry = False
+        t_target_min = t_target_max - 3.5
+
         best_cost = float("inf")
         best_uc, best_uh = 0.0, 0.0
-        best_t = t
-
-        # Enumerate simple actions
-        candidates: list[tuple[float, float]] = [(0.0, 0.0)]
-        for f in cool_levels[1:]:
-            candidates.append((f * u_cool_max, 0.0))
-        for f in heat_levels[1:]:
-            candidates.append((0.0, f * u_heat_max))
-
-        # Must-act overrides near the edge (comfort first)
-        dist_now = (t_out[k] - t) / r + q_gains[k]
-        t_idle = t + dt * dist_now / c
+        best_mode = "idle"
         forced = False
-        if t_idle >= t_max - 0.05 or t >= t_max - 0.1:
-            best_uc = u_cool_max
+
+        if feels >= hi_enter_high or t >= t_target_max + 0.4:
+            best_uc = u_cool_max * (0.65 if prefer_dry else 1.0)
             best_uh = 0.0
+            best_mode = "dry" if prefer_dry else "cool"
             forced = True
-        elif t_idle <= t_min + 0.05 or t <= t_min + 0.1:
+        elif feels <= hi_enter_low or t <= t_target_min - 0.3:
             best_uc = 0.0
             best_uh = u_heat_max
+            best_mode = "heat"
+            forced = True
+        elif mode in ("cool", "dry") and feels <= hi_exit_high and t <= t_target_max:
+            best_uc = (u_cool[k - 1] * 0.7) if k > 0 else 0.4 * u_cool_max
+            best_mode = mode
+            forced = True
+        elif mode == "heat" and feels >= hi_exit_low:
+            best_uh = 0.0
+            best_mode = "idle"
             forced = True
 
         if not forced:
-          for uc, uh in candidates:
-            tt = t
-            cost = 0.0
-            feasible = True
-            h_end = min(n, k + horizon)
-            for j in range(k, h_end):
-                if j == k:
-                    ujc, ujh = uc, uh
-                else:
-                    dist_j = (t_out[j] - tt) / r + q_gains[j]
-                    t_pred = tt + dt * dist_j / c
-                    ujc = ujh = 0.0
-                    if t_pred > t_max - 0.4:
-                        ujc = 0.55 * u_cool_max
-                    elif t_pred < t_min + 0.4:
-                        ujh = 0.5 * u_heat_max
-                dist = (t_out[j] - tt) / r + q_gains[j] + ujh - ujc
-                tt = tt + dt * dist / c
-                cost += (ujc + ujh) * prices[j] * dt
-                if tt > t_max:
-                    cost += 200.0 * (tt - t_max) ** 2
-                    if tt > t_max + 0.8:
+            candidates: list[tuple[float, float, str]] = [(0.0, 0.0, "idle")]
+            for f in cool_levels[1:]:
+                m = "dry" if prefer_dry and f <= 0.75 else "cool"
+                scale = 0.85 if m == "dry" else 1.0
+                candidates.append((f * u_cool_max * scale, 0.0, m))
+            for f in heat_levels[1:]:
+                candidates.append((0.0, f * u_heat_max, "heat"))
+
+            for uc, uh, m in candidates:
+                tt = t
+                rr = rh
+                cost = 0.0
+                feasible = True
+                h_end = min(n, k + horizon)
+                for j in range(k, h_end):
+                    if j == k:
+                        ujc, ujh = uc, uh
+                    else:
+                        dist_j = (t_out[j] - tt) / r + q_gains[j]
+                        t_pred = tt + dt * dist_j / c
+                        ujc = ujh = 0.0
+                        if t_pred > t_target_max - 0.3:
+                            ujc = 0.55 * u_cool_max
+                        elif t_pred < t_target_min + 0.3:
+                            ujh = 0.5 * u_heat_max
+                    dist = (t_out[j] - tt) / r + q_gains[j] + ujh - ujc
+                    tt = tt + dt * dist / c
+                    if ujc > 0.1:
+                        rr -= 0.3 * (ujc / u_cool_max)
+                    else:
+                        rr += 0.06
+                    rr = max(35.0, min(75.0, rr))
+                    cost += (ujc + ujh) * prices[j] * dt
+                    hi_pred = calculate_heat_index(tt, rr)
+                    if hi_pred > hi_max:
+                        cost += 180.0 * (hi_pred - hi_max) ** 2
+                        if hi_pred > hi_max + 1.2:
+                            feasible = False
+                    if hi_pred < hi_min:
+                        cost += 180.0 * (hi_min - hi_pred) ** 2
+                        if hi_pred < hi_min - 1.2:
+                            feasible = False
+                    if tt > t_target_max + 1.5 or tt < t_target_min - 1.5:
                         feasible = False
-                if tt < t_min:
-                    cost += 200.0 * (t_min - tt) ** 2
-                    if tt < t_min - 0.8:
-                        feasible = False
-            if not feasible:
-                cost += 1e6
-            if cost < best_cost:
-                best_cost = cost
-                best_uc, best_uh = uc, uh
+                if not feasible:
+                    cost += 1e6
+                if cost < best_cost:
+                    best_cost = cost
+                    best_uc, best_uh = uc, uh
+                    best_mode = m
 
         dist0 = (t_out[k] - t) / r + q_gains[k] + best_uh - best_uc
-        best_t = t + dt * dist0 / c
+        t = t + dt * dist0 / c
+        t = max(18.0, min(32.0, t))
 
         u_cool[k] = best_uc
         u_heat[k] = best_uh
-        t = max(t_min - 2.0, min(t_max + 3.5, best_t))
+        modes[k] = best_mode
+        mode = best_mode
         t_in[k] = t
 
-    return t_in, u_cool, u_heat
+    return t_in, u_cool, u_heat, rh_in, modes
 
 
-def _humidity_trace(
+def _humidity_trace_baseline(
     u_cool: Sequence[float],
-    baseline: bool,
     hours: int,
     heatwave_boost: float = 0.0,
 ) -> list[float]:
-    """Simple RH model: idle drifts up; active cooling pulls RH down."""
     rh = 52.0 + heatwave_boost
     out: list[float] = []
     for k in range(hours):
-        if u_cool[k] < 0.15 * (3.5):
-            rh += 0.12 if baseline else 0.04
+        if u_cool[k] < 0.15 * 3.5:
+            rh += 0.12
         else:
-            rh -= 0.35 * (u_cool[k] / 3.5) + (0.15 if not baseline else 0.0)
-        rh = max(42.0, min(72.0 if baseline else 60.0, rh))
+            rh -= 0.30 * (u_cool[k] / 3.5)
+        rh = max(42.0, min(72.0, rh))
         out.append(round(rh, 1))
     return out
 
@@ -206,17 +250,27 @@ def run_simulation(
     comfort_nudge: int = 0,
     city: str = "Bengaluru",
     weather_source: str = "synthetic",
+    comfort_pref: str = "comfortable",
 ) -> SimResponse:
-    # Comfort band adjustments
     t_min_eff = t_min - comfort_nudge * 0.3
     t_max_eff = t_max + comfort_nudge * 0.3
     if away:
         t_min_eff -= 1.5
         t_max_eff += 1.5
 
+    hi_min, hi_max = comfort_preference_to_band(comfort_pref)
+    if away:
+        hi_min -= 1.0
+        hi_max += 1.5
+    hi_min += comfort_nudge * 0.25
+    hi_max += comfort_nudge * 0.25
+
     n = len(weather)
     t_out = [p.t_out for p in weather]
     prices = [p.price for p in weather]
+    rh_out = [
+        (p.humidity_out if p.humidity_out is not None else 55.0) for p in weather
+    ]
     gains = [_internal_gains(k) for k in range(n)]
 
     t_base, uc_base, uh_base = baseline_reactive_thermostat(
@@ -231,13 +285,15 @@ def run_simulation(
         settings.u_heat_max,
         settings.u_cool_max,
     )
-    t_mpc, uc_mpc, uh_mpc = mpc_style_controller(
+
+    t_mpc, uc_mpc, uh_mpc, rh_mpc, modes = humidity_aware_controller(
         settings.t_in0,
         t_out,
         gains,
         prices,
-        t_min_eff,
-        t_max_eff,
+        rh_out,
+        hi_min,
+        hi_max,
         settings.r_thermal,
         settings.c_thermal,
         settings.dt_hours,
@@ -246,19 +302,20 @@ def run_simulation(
     )
 
     heatwave_boost = 4.0 if any(t > 36 for t in t_out) else 0.0
-    hum_base = _humidity_trace(uc_base, baseline=True, hours=n, heatwave_boost=heatwave_boost)
-    hum_mpc = _humidity_trace(uc_mpc, baseline=False, hours=n, heatwave_boost=heatwave_boost * 0.5)
+    rh_base = _humidity_trace_baseline(uc_base, hours=n, heatwave_boost=heatwave_boost)
+
+    hi_base = [calculate_heat_index(t_base[k], rh_base[k]) for k in range(n)]
+    hi_mpc = [calculate_heat_index(t_mpc[k], rh_mpc[k]) for k in range(n)]
 
     u_base_tot = [uc_base[i] + uh_base[i] for i in range(n)]
     u_mpc_tot = [uc_mpc[i] + uh_mpc[i] for i in range(n)]
 
-    # Energy ≈ power * dt (kWh)
     e_base = sum(u_base_tot) * settings.dt_hours
     e_mpc = sum(u_mpc_tot) * settings.dt_hours
     savings = ((e_base - e_mpc) / e_base * 100.0) if e_base > 1e-6 else 0.0
 
-    def comfort_pct(series: list[float]) -> float:
-        ok = sum(1 for v in series if t_min_eff <= v <= t_max_eff)
+    def comfort_pct_hi(series: list[float], lo: float, hi: float) -> float:
+        ok = sum(1 for v in series if lo <= v <= hi)
         return 100.0 * ok / max(1, len(series))
 
     cost_base = sum(u_base_tot[i] * prices[i] * settings.dt_hours for i in range(n))
@@ -272,9 +329,12 @@ def run_simulation(
             t_in_mpc=round(t_mpc[k], 2),
             u_baseline=round(u_base_tot[k], 3),
             u_mpc=round(u_mpc_tot[k], 3),
-            humidity_baseline=hum_base[k],
-            humidity_mpc=hum_mpc[k],
+            humidity_baseline=rh_base[k],
+            humidity_mpc=rh_mpc[k],
             price=prices[k],
+            feels_baseline=hi_base[k],
+            feels_mpc=hi_mpc[k],
+            mode_mpc=modes[k],
         )
         for k in range(n)
     ]
@@ -283,19 +343,21 @@ def run_simulation(
         energy_base_kwh=round(e_base, 2),
         energy_mpc_kwh=round(e_mpc, 2),
         savings_pct=round(savings, 1),
-        comfort_base_pct=round(comfort_pct(t_base), 1),
-        comfort_mpc_pct=round(comfort_pct(t_mpc), 1),
-        avg_hum_base=round(sum(hum_base) / n, 1),
-        avg_hum_mpc=round(sum(hum_mpc) / n, 1),
+        comfort_base_pct=round(comfort_pct_hi(hi_base, hi_min, hi_max), 1),
+        comfort_mpc_pct=round(comfort_pct_hi(hi_mpc, hi_min, hi_max), 1),
+        avg_hum_base=round(sum(rh_base) / n, 1),
+        avg_hum_mpc=round(sum(rh_mpc) / n, 1),
         cost_base_inr=round(cost_base, 0),
         cost_mpc_inr=round(cost_mpc, 0),
+        avg_feels_base=round(sum(hi_base) / n, 1),
+        avg_feels_mpc=round(sum(hi_mpc) / n, 1),
     )
 
     script = [
-        "Watch the trajectory — ThermoLogic pre-cools ahead of the heatwave so we stay in band.",
-        "Toggle to smooth weather: savings barely drop — the lever is tariff timing, not only the spike.",
-        "Humidity: baseline drifts while idle; ours keeps the coil active enough to hold RH.",
-        "Away widens the comfort band; the personalization nudge shifts the preferred set-point.",
+        "ThermoLogic controls on Heat Index (feels-like), not just dry-bulb.",
+        "High humidity → setpoint shift + dry/low-fan bias instead of over-cooling.",
+        "Pre-cools / pre-dehumidifies using outdoor forecast and tariff windows.",
+        "Hysteresis prevents mode chatter; energy drops once the feels-like band is held.",
     ]
 
     return SimResponse(
@@ -307,4 +369,9 @@ def run_simulation(
         metrics=metrics,
         points=points,
         demo_script=script,
+        parameters_used={
+            "hi_min": hi_min,
+            "hi_max": hi_max,
+            "comfort_pref": comfort_pref,
+        },
     )

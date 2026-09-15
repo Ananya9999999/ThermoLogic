@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
+import DashboardHome from "./pages/DashboardHome";
 import LiveHub from "./pages/LiveHub";
 import Impact from "./pages/Impact";
 import About from "./pages/About";
@@ -13,7 +14,7 @@ import Signup from "./pages/Signup";
 function HomeGate() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  // Signed-in users land on live dashboard
+  // Signed-in users land on weather + comfort dashboard
   if (user) return <Navigate to="/app" replace />;
   return <Home />;
 }
@@ -32,6 +33,14 @@ export default function App() {
               path="/app"
               element={
                 <ProtectedRoute>
+                  <DashboardHome />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/control"
+              element={
+                <ProtectedRoute>
                   <LiveHub />
                 </ProtectedRoute>
               }
@@ -44,14 +53,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/about"
-              element={
-                <ProtectedRoute>
-                  <About />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/about" element={<About />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

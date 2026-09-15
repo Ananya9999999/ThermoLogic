@@ -18,8 +18,11 @@ export default function Navbar() {
 
         {user ? (
           <nav className="nav-links">
-            <NavLink to="/app" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-              Live dashboard
+            <NavLink to="/app" end className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              Dashboard
+            </NavLink>
+            <NavLink to="/app/control" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              Control Centre
             </NavLink>
             <NavLink to="/impact" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
               Impact
@@ -28,16 +31,22 @@ export default function Navbar() {
               About Us
             </NavLink>
             <NavLink to="/terms" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-              Terms and Conditions
+              Terms
             </NavLink>
           </nav>
         ) : (
           <nav className="nav-links">
-            <NavLink to="/" end className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-              Home
-            </NavLink>
+            <a href="/#mission" className="nav-link">
+              Mission
+            </a>
+            <a href="/#what-we-do" className="nav-link">
+              What we do
+            </a>
+            <a href="/#about" className="nav-link">
+              About
+            </a>
             <NavLink to="/terms" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
-              Terms and Conditions
+              Terms
             </NavLink>
           </nav>
         )}
@@ -52,8 +61,12 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link to="/login" className="nav-link">Sign in</Link>
-              <Link to="/signup" className="btn btn-primary nav-cta">Sign up</Link>
+              <Link to="/login" className="nav-link">
+                Sign in
+              </Link>
+              <Link to="/signup" className="btn btn-primary nav-cta">
+                Sign up
+              </Link>
             </>
           )}
         </div>

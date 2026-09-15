@@ -39,6 +39,7 @@ class SimRequest(BaseModel):
     price_peak: Optional[float] = Field(None, ge=1, le=30)
     appliance_id: Optional[int] = None
     tonnage: Optional[float] = Field(None, ge=0.5, le=5)
+    comfort_pref: str = "comfortable"  # cool | comfortable | warm
 
 
 class TrajectoryPoint(BaseModel):
@@ -51,6 +52,9 @@ class TrajectoryPoint(BaseModel):
     humidity_baseline: float
     humidity_mpc: float
     price: float
+    feels_baseline: float = 0.0
+    feels_mpc: float = 0.0
+    mode_mpc: str = "idle"
 
 
 class SimMetrics(BaseModel):
@@ -63,6 +67,8 @@ class SimMetrics(BaseModel):
     avg_hum_mpc: float
     cost_base_inr: float
     cost_mpc_inr: float
+    avg_feels_base: float = 0.0
+    avg_feels_mpc: float = 0.0
 
 
 class SimResponse(BaseModel):

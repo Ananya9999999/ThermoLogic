@@ -5,6 +5,16 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from dataclasses import dataclass
+from pathlib import Path
+
+# Load backend/.env if present
+try:
+    from dotenv import load_dotenv
+
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    load_dotenv(env_path)
+except ImportError:
+    pass
 
 
 def _bool(name: str, default: bool = False) -> bool:

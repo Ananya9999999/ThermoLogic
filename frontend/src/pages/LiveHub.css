@@ -71,3 +71,9 @@
 }
 .research-notes ul { margin: 0.4rem 0 0 1.1rem; }
 .research-notes li { margin-bottom: 0.35rem; }
+
+.climate-grid { margin-bottom: 0.25rem; }
+@media (max-width: 900px) {
+  .climate-grid { grid-template-columns: 1fr !important; }
+}
+

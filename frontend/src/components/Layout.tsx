@@ -23,7 +23,8 @@ export default function Layout() {
             <h4>Product</h4>
             {user ? (
               <>
-                <Link to="/app">Live dashboard</Link>
+                <Link to="/app">Dashboard</Link>
+                <Link to="/app/control">Control Centre</Link>
                 <Link to="/impact">Impact</Link>
               </>
             ) : (

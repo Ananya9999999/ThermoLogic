@@ -36,3 +36,66 @@
 @media (max-width: 800px) {
   .feature-row { grid-template-columns: 1fr; }
 }
+
+.landing { padding-bottom: 4rem; }
+.land-hero {
+  padding: 3.5rem 0 2.5rem;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(107,124,62,0.18), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 100% 30%, rgba(79,172,254,0.12), transparent 50%);
+}
+.land-hero-inner { max-width: 40rem; }
+.land-hero h1 {
+  font-size: clamp(2rem, 5vw, 2.85rem);
+  line-height: 1.15;
+  margin: 0.75rem 0 1rem;
+  color: var(--ink, #2c2416);
+}
+.land-hero h1 em {
+  font-style: normal;
+  color: var(--olive-dark, #4a5630);
+}
+.land-lead {
+  font-size: 1.08rem;
+  line-height: 1.6;
+  color: var(--brown-muted, #8b7355);
+  margin-bottom: 1.5rem;
+}
+.land-actions { display: flex; flex-wrap: wrap; gap: 0.65rem; }
+.land-section { padding: 2.5rem 0 1rem; }
+.land-section h2 {
+  font-size: 1.55rem;
+  margin-bottom: 0.75rem;
+  color: var(--ink);
+}
+.land-copy {
+  max-width: 42rem;
+  line-height: 1.65;
+  color: var(--brown-muted);
+  font-size: 1.02rem;
+}
+.land-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.land-card {
+  background: var(--surface, #fffdf8);
+  border: 1px solid var(--border-soft, rgba(107,76,50,0.12));
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 6px 20px rgba(44,36,22,0.05);
+}
+.land-card h3 { margin: 0.55rem 0 0.35rem; font-size: 1.05rem; }
+.land-card p { margin: 0; font-size: 0.92rem; line-height: 1.5; color: var(--brown-muted); }
+.land-card svg { color: var(--olive, #6b7c3e); }
+.land-cta {
+  text-align: center;
+  padding: 3rem 1rem;
+  margin-top: 1.5rem;
+  border-radius: 1.25rem;
+  background: linear-gradient(135deg, rgba(107,124,62,0.1), rgba(79,172,254,0.08));
+}
+.land-cta h2 { margin-bottom: 0.5rem; }
+.land-cta p { color: var(--brown-muted); margin-bottom: 1.25rem; }

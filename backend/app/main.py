@@ -45,7 +45,7 @@ from .models import (
 )
 from .reference_data import REFERENCE
 from .simulator import run_simulation
-from .weather import get_weather
+from .weather import get_weather, fetch_current_conditions
 
 settings = get_settings()
 
@@ -299,6 +299,7 @@ async def _run_sim_for(
         comfort_nudge=body.comfort_nudge,
         city=weather.city,
         weather_source=weather.source,
+        comfort_pref=getattr(body, "comfort_pref", "comfortable") or "comfortable",
     )
     result.parameters_used = {
         "r_thermal": cfg.r_thermal,
@@ -549,3 +550,141 @@ def api_actuate(body: ActuationRequest) -> ActuationResponse:
         message=f"Command '{body.command}' at {body.power_kw} kW accepted.",
         command=body.command,
     )
+
+
+
+@app.get("/api/weather/current")
+async def api_weather_current(
+    lat: float | None = None,
+    lon: float | None = None,
+    city: str | None = None,
+) -> dict:
+    """Current outdoor conditions for the dashboard weather card."""
+    try:
+        return await fetch_current_conditions(settings, lat=lat, lon=lon, city=city)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "source": "synthetic",
+            "city": city or settings.default_city,
+            "lat": lat if lat is not None else settings.default_lat,
+            "lon": lon if lon is not None else settings.default_lon,
+            "temp_c": 30.0,
+            "humidity": 60.0,
+            "condition": "Clouds",
+            "rain_mm_h": 0.0,
+            "wind_kmh": 8.0,
+            "feels_like_c": 31.5,
+            "note": f"Synthetic fallback: {exc}",
+        }
+
+
+# ----- Occupancy learning, personalization bandit, forecast bias -----
+from datetime import datetime, timezone
+from pydantic import BaseModel, Field
+
+from .occupancy_model import OccupancyPredictor
+from .personalization import ComfortBandBandit, context_vector
+from .forecast_bias import ForecastBiasCorrector
+
+_occupancy = OccupancyPredictor()
+_bandit = ComfortBandBandit()
+_bias = ForecastBiasCorrector()
+
+
+class OccupancyObserve(BaseModel):
+    timestamp: str | None = None
+    occupied: bool
+    is_holiday: bool = False
+
+
+class ComfortBandOverride(BaseModel):
+    t_min: float
+    t_max: float
+    h_min: float = 40.0
+    h_max: float = 60.0
+    hour: float | None = None
+    outdoor_temp: float = 30.0
+    outdoor_humidity: float = 60.0
+    day_of_week: int | None = None
+
+
+@app.post("/api/occupancy/observe")
+def api_occupancy_observe(body: OccupancyObserve) -> dict:
+    ts = datetime.fromisoformat(body.timestamp) if body.timestamp else datetime.now(timezone.utc)
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    _occupancy.observe(ts, body.occupied, body.is_holiday)
+    return {
+        "ok": True,
+        "n_obs": len(_occupancy.observations),
+        "n_days": _occupancy._n_unique_days(),
+        "proba_now": _occupancy.predict_proba(ts, body.is_holiday),
+    }
+
+
+@app.get("/api/occupancy/schedule")
+def api_occupancy_schedule(hours: int = Query(48, ge=24, le=168)) -> dict:
+    start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    proba = _occupancy.predict_schedule(start, hours=hours)
+    return {
+        "start": start.isoformat(),
+        "hours": hours,
+        "p_occupied": [round(float(p), 3) for p in proba],
+        "using_prior": _occupancy._n_unique_days() < _occupancy.min_days,
+    }
+
+
+@app.post("/api/comfort-band")
+def api_set_comfort_band(body: ComfortBandOverride) -> dict:
+    now = datetime.now(timezone.utc)
+    hour = body.hour if body.hour is not None else now.hour + now.minute / 60.0
+    dow = body.day_of_week if body.day_of_week is not None else now.weekday()
+    ctx = context_vector(hour, body.outdoor_temp, body.outdoor_humidity, dow)
+    _bandit.update(ctx, (body.t_min, body.t_max, body.h_min, body.h_max))
+    band, conf = _bandit.suggest(ctx)
+    return {
+        "ok": True,
+        "n_updates": _bandit.n_updates,
+        "suggested": {
+            "t_min": band[0],
+            "t_max": band[1],
+            "h_min": band[2],
+            "h_max": band[3],
+        },
+        "confidence": conf,
+    }
+
+
+@app.get("/api/personalization")
+def api_personalization(
+    outdoor_temp: float = Query(30.0),
+    outdoor_humidity: float = Query(60.0),
+) -> dict:
+    now = datetime.now(timezone.utc)
+    ctx = context_vector(now.hour + now.minute / 60.0, outdoor_temp, outdoor_humidity, now.weekday())
+    band, conf = _bandit.suggest(ctx)
+    return {
+        "suggested_t_min": band[0],
+        "suggested_t_max": band[1],
+        "suggested_h_min": band[2],
+        "suggested_h_max": band[3],
+        "confidence": conf,
+        "n_overrides": _bandit.n_updates,
+    }
+
+
+@app.get("/api/forecast-bias")
+def api_forecast_bias() -> dict:
+    return {"buckets": _bias.snapshot()}
+
+
+@app.post("/api/forecast-bias/observe")
+def api_forecast_bias_observe(
+    lead_time_hours: float = Query(..., ge=0, le=48),
+    forecast_value: float = Query(...),
+    actual_value: float = Query(...),
+    var: str = Query("temp", pattern="^(temp|humidity)$"),
+) -> dict:
+    _bias.observe(lead_time_hours, forecast_value, actual_value, var=var)
+    return {"ok": True, "buckets": _bias.snapshot()}
+

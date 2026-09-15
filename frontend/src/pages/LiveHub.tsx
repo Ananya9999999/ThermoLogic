@@ -11,6 +11,10 @@ import type { CatalogItem } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useReveal } from "../hooks/useReveal";
 import "./LiveHub.css";
+import {
+  ThermostatControlPanel,
+  ScheduleOccupancyOptimizer,
+} from "../components/dashboard";
 
 const KIND_ICON: Record<string, typeof Snowflake> = {
   ac: Snowflake,
@@ -31,6 +35,7 @@ export default function LiveHub() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [band, setBand] = useState<{ tMin: number; tMax: number }>({ tMin: 22, tMax: 26 });
 
   // Calculator state (joined into this hub)
   const [calc, setCalc] = useState<api.CalcParams>({
@@ -61,7 +66,7 @@ export default function LiveHub() {
     }
   }, [mode, selectedId]);
 
-  useEffect(() => { loadDash(); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadDash(); }, [mode, liveWeather]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     api.fetchCatalog().then((c) => setCatalog({ acs: c.acs, refrigerators: c.refrigerators })).catch(() => {});
@@ -113,14 +118,37 @@ export default function LiveHub() {
 
   return (
     <div className="container live-hub">
-      <header className="page-header reveal">
+<header className="page-header reveal">
         <span className="badge badge-warm">Live · {user?.name}</span>
-        <h1>Control centre</h1>
+        <h1>Control Centre</h1>
         <p>
-          Dashboard, weather scenarios, and annual savings calculator — driven by
-          your appliances and the ThermoLogic planner.
+          Appliances, thermostat, occupancy schedule, scenarios, and savings —
+          separate from the weather & comfort dashboard.
         </p>
       </header>
+
+      <section className="control-extras reveal" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+        <ThermostatControlPanel
+          onBandChange={(tMin, tMax) => {
+            setBand({ tMin, tMax });
+            // Re-fetch prediction so charts reflect new comfort band
+            const id = selectedId || dash?.appliances?.[0]?.id;
+            if (id) {
+              api.runPredict({
+                mode,
+                use_live_weather: liveWeather,
+                hours: 48,
+                appliance_id: id,
+                policy: "mpc",
+                t_min: tMin,
+                t_max: tMax,
+              }).then(setPred).catch(() => {});
+            }
+          }}
+        />
+        <ScheduleOccupancyOptimizer />
+      </section>
+
 
       <div className="hub-toolbar reveal">
         <div className="seg">
