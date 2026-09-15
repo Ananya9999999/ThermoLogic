@@ -1,71 +1,55 @@
-.about-page {
+.about {
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
 }
 
-.page-header h1 {
-  font-size: 1.75rem;
-  margin-bottom: 0.35rem;
-}
-
 .about-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
 
-.about-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.about-card .icon-wrap {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  background: var(--primary-soft);
-  color: var(--primary);
+.about-card .icn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 0.65rem;
 }
 
-.about-card .icon-wrap.teal {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.about-card .icon-wrap.green {
-  background: var(--success-soft);
-  color: var(--success);
-}
+.about-card .icn.sage { background: var(--primary-soft); color: var(--sage-dark); }
+.about-card .icn.slate { background: var(--accent-soft); color: var(--slate-dark); }
+.about-card .icn.warm { background: var(--warm-soft); color: var(--brown); }
+.about-card .icn.brown { background: var(--emphasis-soft); color: var(--brown-dark); }
 
 .about-card h2 {
-  font-size: 1.05rem;
+  font-size: 1.2rem;
+  margin-bottom: 0.4rem;
 }
 
 .about-card p {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
-.values h2 {
-  font-size: 1.15rem;
-  margin-bottom: 0.75rem;
+.beliefs h2 {
+  font-size: 1.25rem;
+  margin-bottom: 0.85rem;
 }
 
-.values ul {
-  margin-left: 1.2rem;
+.beliefs ul {
+  margin-left: 1.15rem;
   color: var(--text-muted);
   font-size: 0.95rem;
 }
 
-.values li {
+.beliefs li {
   margin-bottom: 0.5rem;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 700px) {
   .about-grid {
     grid-template-columns: 1fr;
   }

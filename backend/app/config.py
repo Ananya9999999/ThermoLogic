@@ -24,17 +24,21 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # Building defaults (Indian apartment-ish lumped RC)
-    r_thermal: float = 2.5  # °C/kW effective
-    c_thermal: float = 8.0  # kWh/°C
-    u_cool_max: float = 3.5  # kW
-    u_heat_max: float = 2.0  # kW
+    # Auth
+    jwt_secret: str = "thermologic-hackathon-change-me-in-production"
+    jwt_expire_hours: int = 72
+    database_path: str = "thermologic.db"
+
+    # Building defaults
+    r_thermal: float = 2.5
+    c_thermal: float = 8.0
+    u_cool_max: float = 3.5
+    u_heat_max: float = 2.0
     t_min: float = 22.0
     t_max: float = 26.0
     t_in0: float = 24.0
     dt_hours: float = 1.0
 
-    # Illustrative ToU tariff ₹/kWh
     price_offpeak: float = 4.2
     price_peak: float = 8.5
     peak_start_hour: int = 10

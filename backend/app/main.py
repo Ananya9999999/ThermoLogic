@@ -1,35 +1,45 @@
-"""
-ThermoLogic API
-
-- Weather proxy (OpenWeatherMap key stays on server)
-- Synthetic fallback for offline demos
-- Fair baseline vs planning simulation
-- Actuation endpoint gated by ACTUATION_ENABLED
-"""
+"""ThermoLogic API — weather, simulation, calculator, auth."""
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Query
+import copy
+
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from .auth import (
+    create_access_token,
+    get_current_user,
+    hash_password,
+    verify_password,
+)
+from .calculator import compute_savings
 from .config import get_settings
+from .database import create_user, get_user_by_email, init_db
 from .models import (
     ActuationRequest,
     ActuationResponse,
+    AuthResponse,
+    CalculatorRequest,
+    CalculatorResponse,
     HealthResponse,
+    LoginRequest,
+    SignupRequest,
     SimRequest,
     SimResponse,
+    UserOut,
     WeatherResponse,
 )
+from .reference_data import REFERENCE
 from .simulator import run_simulation
-from .weather import get_weather
+from .weather import get_weather, synthetic_weather
 
 settings = get_settings()
 
 app = FastAPI(
     title="ThermoLogic API",
-    description="Forecast-aware thermostat backend: weather proxy, simulation, gated actuation.",
-    version="0.1.0",
+    description="Forecast-aware thermostat backend with auth, calculator, and simulation.",
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -39,6 +49,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    init_db()
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -52,39 +67,101 @@ def health() -> HealthResponse:
     )
 
 
+@app.get("/api/reference")
+def api_reference() -> dict:
+    """Static data backing website claims (savings ranges, BEE, CEA, tariffs)."""
+    return REFERENCE
+
+
+# ----- Auth -----
+@app.post("/api/auth/signup", response_model=AuthResponse)
+def signup(body: SignupRequest) -> AuthResponse:
+    email = body.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+    if get_user_by_email(email):
+        raise HTTPException(status_code=400, detail="Email already registered")
+    try:
+        user = create_user(email, body.name, hash_password(body.password))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Could not create user: {exc}") from exc
+    token = create_access_token(user["id"], user["email"])
+    return AuthResponse(
+        access_token=token,
+        user=UserOut(
+            id=user["id"],
+            email=user["email"],
+            name=user["name"],
+            created_at=user.get("created_at"),
+        ),
+    )
+
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+def login(body: LoginRequest) -> AuthResponse:
+    user = get_user_by_email(body.email)
+    if not user or not verify_password(body.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    token = create_access_token(user["id"], user["email"])
+    return AuthResponse(
+        access_token=token,
+        user=UserOut(
+            id=user["id"],
+            email=user["email"],
+            name=user["name"],
+            created_at=user.get("created_at"),
+        ),
+    )
+
+
+from .auth import get_current_user as _get_current_user
+
+@app.get("/api/auth/me", response_model=UserOut)
+def auth_me(user: dict = Depends(_get_current_user)) -> UserOut:
+    return UserOut(
+        id=user["id"],
+        email=user["email"],
+        name=user["name"],
+        created_at=user.get("created_at"),
+    )
+
+
+# ----- Weather & simulate -----
 @app.get("/api/weather", response_model=WeatherResponse)
 async def api_weather(
     mode: str = Query("heatwave", pattern="^(heatwave|smooth)$"),
-    live: bool | None = Query(None, description="Override USE_LIVE_WEATHER"),
+    live: bool | None = Query(None),
     lat: float | None = None,
     lon: float | None = None,
     city: str | None = None,
     hours: int = Query(168, ge=24, le=336),
 ) -> WeatherResponse:
-    """Outdoor temperature (+ RH) and ToU price trace. Live calls are server-side only."""
     return await get_weather(
-        settings,
-        mode=mode,
-        use_live=live,
-        lat=lat,
-        lon=lon,
-        city=city,
-        hours=hours,
+        settings, mode=mode, use_live=live, lat=lat, lon=lon, city=city, hours=hours
     )
 
 
 @app.post("/api/simulate", response_model=SimResponse)
 async def api_simulate(body: SimRequest) -> SimResponse:
-    """
-    Run baseline deadband thermostat vs planning controller on the same weather.
-    """
     t_min = body.t_min if body.t_min is not None else settings.t_min
     t_max = body.t_max if body.t_max is not None else settings.t_max
     if t_min >= t_max:
         raise HTTPException(status_code=400, detail="t_min must be < t_max")
 
+    cfg = copy.copy(settings)
+    if body.r_thermal is not None:
+        cfg.r_thermal = body.r_thermal
+    if body.c_thermal is not None:
+        cfg.c_thermal = body.c_thermal
+    if body.u_cool_max is not None:
+        cfg.u_cool_max = body.u_cool_max
+    if body.price_offpeak is not None:
+        cfg.price_offpeak = body.price_offpeak
+    if body.price_peak is not None:
+        cfg.price_peak = body.price_peak
+
     weather = await get_weather(
-        settings,
+        cfg,
         mode=body.mode,
         use_live=body.use_live_weather,
         lat=body.lat,
@@ -93,8 +170,18 @@ async def api_simulate(body: SimRequest) -> SimResponse:
         hours=body.hours,
     )
 
-    return run_simulation(
-        settings,
+    # Re-price weather points if user overrode tariffs
+    if body.price_offpeak is not None or body.price_peak is not None:
+        for p in weather.points:
+            hod = p.hour % 24
+            p.price = (
+                cfg.price_peak
+                if cfg.peak_start_hour <= hod <= cfg.peak_end_hour
+                else cfg.price_offpeak
+            )
+
+    result = run_simulation(
+        cfg,
         weather.points,
         t_min=t_min,
         t_max=t_max,
@@ -103,21 +190,35 @@ async def api_simulate(body: SimRequest) -> SimResponse:
         city=weather.city,
         weather_source=weather.source,
     )
+    result.parameters_used = {
+        "r_thermal": cfg.r_thermal,
+        "c_thermal": cfg.c_thermal,
+        "u_cool_max": cfg.u_cool_max,
+        "price_offpeak": cfg.price_offpeak,
+        "price_peak": cfg.price_peak,
+        "t_min": t_min,
+        "t_max": t_max,
+        "mode": body.mode,
+        "away": body.away,
+        "hours": body.hours,
+    }
+    return result
+
+
+@app.post("/api/calculator", response_model=CalculatorResponse)
+def api_calculator(body: CalculatorRequest) -> CalculatorResponse:
+    """Annual energy / ₹ / CO₂ savings from user-tunable household parameters."""
+    return compute_savings(body)
 
 
 @app.post("/api/actuate", response_model=ActuationResponse)
 def api_actuate(body: ActuationRequest) -> ActuationResponse:
-    """
-    Hardware command path — disabled unless ACTUATION_ENABLED=true.
-    Even when enabled, power is clamped by the schema (max 5 kW).
-    """
     if not settings.actuation_enabled:
         return ActuationResponse(
             accepted=False,
             message="Actuation disabled (ACTUATION_ENABLED=false). Simulation-only mode.",
             command=None,
         )
-    # Placeholder: in production, send to device bridge with auth + rate limits
     return ActuationResponse(
         accepted=True,
         message=f"Command '{body.command}' at {body.power_kw} kW accepted (demo stub).",
@@ -127,24 +228,20 @@ def api_actuate(body: ActuationRequest) -> ActuationResponse:
 
 @app.get("/api/impact")
 def api_impact() -> dict:
-    """Static impact factors grounded in public BEE / CEA-style assumptions."""
+    s = REFERENCE["savings"]
+    g = REFERENCE["grid"]
     return {
-        "savings_pct_range": "13–20%",
-        "annual_savings_inr": "₹1,200 – ₹4,800",
+        "savings_pct_range": s["pct_range"],
+        "annual_savings_inr": s["annual_inr_range"],
         "per_household_note": (
-            "Based on ~900–1,800 kWh/yr cooling (BEE ~1,600 h label hours, "
-            "adjusted for real runtime) and DISCOM tariffs roughly ₹6–9/kWh."
+            "Based on ~900–1,800 kWh/yr cooling (BEE-style hours) and DISCOM tariffs ~₹6–9/kWh."
         ),
-        "city_scale_mwh": "30,000 – 70,000 MWh / year",
-        "city_scale_note": "Illustrative mid-size metro (~300k–500k residential AC households).",
-        "co2_tons": "21,000 – 50,000 tCO₂ / year",
-        "co2_note": (
-            "Using CEA Indian grid weighted-average emission factor ≈ 0.71 tCO₂/MWh "
-            "(FY 2024–25 order of magnitude)."
-        ),
-        "sources": [
-            "BEE ISEER / annual units methodology (~1,600 h/year reference)",
-            "CEA CO₂ Baseline Database (grid emission factor)",
-            "State DISCOM tariff orders (ToU / slab illustrative averages)",
-        ],
+        "city_scale_mwh": s["city_mwh_range"],
+        "city_scale_note": "Illustrative mid-size metro residential AC stock.",
+        "co2_tons": s["co2_tons_range"],
+        "co2_note": f"Grid intensity ≈ {g['emission_factor_tco2_per_mwh']} tCO₂/MWh — {g['source']}.",
+        "sources": REFERENCE["sources"],
+        "ac_presets": REFERENCE["ac_presets"],
+        "tariffs": REFERENCE["tariffs"],
+        "bee": REFERENCE["bee"],
     }

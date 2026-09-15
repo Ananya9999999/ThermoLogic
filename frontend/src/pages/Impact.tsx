@@ -1,84 +1,74 @@
-import { impactNumbers } from "../data/mockData";
-import { Leaf, Home, Building2, Cloud } from "lucide-react";
+import { Home, Building2, Cloud, BookOpen } from "lucide-react";
+import { useReveal } from "../hooks/useReveal";
 import "./Impact.css";
 
 export default function Impact() {
+  useReveal();
+
   return (
-    <div className="container impact-page">
-      <header className="page-header">
+    <div className="container impact">
+      <header className="page-header reveal">
+        <span className="badge badge-slate">Evidence-based</span>
         <h1>Real-world impact</h1>
         <p>
-          13–20% energy savings sounds abstract. Here’s what it means in rupees,
-          megawatt-hours, and tons of CO₂ for Indian households and cities.
+          Percentage savings only matter when they translate into rupees, grid
+          megawatt-hours, and tonnes of CO₂. Here is how we frame those numbers
+          for Indian homes and cities.
         </p>
       </header>
 
       <div className="impact-grid">
-        <div className="card impact-card">
-          <div className="icon-wrap">
-            <Home size={22} />
-          </div>
+        <article className="card impact-card reveal">
+          <div className="icn sage"><Home size={22} /></div>
           <h2>Per household / year</h2>
-          <div className="big-num">{impactNumbers.annualSavingsInr}</div>
-          <p>{impactNumbers.perHouseholdNote}</p>
-          <div className="tag">{impactNumbers.savingsPct} energy</div>
-        </div>
-
-        <div className="card impact-card">
-          <div className="icon-wrap teal">
-            <Building2 size={22} />
-          </div>
-          <h2>City scale (≈500k ACs)</h2>
-          <div className="big-num">{impactNumbers.cityScaleMwh}</div>
-          <p>{impactNumbers.cityScaleNote}</p>
-        </div>
-
-        <div className="card impact-card">
-          <div className="icon-wrap green">
-            <Cloud size={22} />
-          </div>
-          <h2>CO₂ avoided</h2>
-          <div className="big-num">{impactNumbers.co2Tons}</div>
-          <p>{impactNumbers.co2Note}</p>
-        </div>
-
-        <div className="card impact-card">
-          <div className="icon-wrap">
-            <Leaf size={22} />
-          </div>
-          <h2>Why the range?</h2>
+          <div className="big">₹1,200 – ₹4,800</div>
           <p>
-            Savings depend on climate zone, tariff structure, building thermal
-            mass, and how often the household is occupied. The 13% figure is a
-            conservative weekly average against a fair deadband baseline; peak
-            heatwave weeks and high ToU differentials push toward 20%+.
+            Based on roughly 900–1,800 kWh/year of cooling (BEE-style annual
+            hours, adjusted for real runtime) and DISCOM tariffs around ₹6–9/kWh.
           </p>
-        </div>
+          <span className="tag">~10–20% energy</span>
+        </article>
+
+        <article className="card impact-card reveal reveal-delay-1">
+          <div className="icn slate"><Building2 size={22} /></div>
+          <h2>City scale</h2>
+          <div className="big">30,000 – 70,000 MWh/year</div>
+          <p>
+            Illustrative mid-size metro with a few hundred thousand residential
+            AC households — after diversity and adoption factors.
+          </p>
+        </article>
+
+        <article className="card impact-card reveal reveal-delay-2">
+          <div className="icn warm"><Cloud size={22} /></div>
+          <h2>CO₂ avoided</h2>
+          <div className="big">21,000 – 50,000 tCO₂/year</div>
+          <p>
+            Using a CEA-order Indian grid intensity of about 0.71 tCO₂ per MWh
+            (recent baseline publications).
+          </p>
+        </article>
+
+        <article className="card impact-card reveal reveal-delay-3">
+          <div className="icn brown"><BookOpen size={22} /></div>
+          <h2>Why a range?</h2>
+          <p>
+            Climate zone, building fabric, occupancy, star rating, and tariff
+            structure all move the outcome. Our simulation reports week-level
+            savings against a fair deadband baseline on identical weather —
+            not a marketing ceiling.
+          </p>
+        </article>
       </div>
 
-      <section className="card math-card">
-        <h2>Conversion math (transparent)</h2>
+      <section className="card method reveal">
+        <h2>Transparent methodology</h2>
         <ul>
-          <li>
-            Typical 1.5-ton split AC in a metro apartment: ~1,200–1,800 kWh/yr
-            for cooling (BEE / field studies).
-          </li>
-          <li>
-            DISCOM tariffs: roughly ₹6–9/kWh blended; peak slabs higher.
-          </li>
-          <li>
-            13% of 1,500 kWh × ₹7 ≈ ₹1,365; at the high end of usage and tariff
-            + better MPC weeks → ₹2,400–4,800 is a realistic household range.
-          </li>
-          <li>
-            500,000 households × 1,500 kWh × 0.15 ≈ 112,500 MWh before
-            diversity; we quote a tempered 42–68k MWh after occupancy and
-            adoption factors.
-          </li>
-          <li>
-            CEA grid factor ≈ 0.82 tCO₂/MWh → tens of thousands of tons at city
-            scale.
-          </li>
+          <li>BEE ISEER labels assume on the order of 1,600 operating hours/year as a reference.</li>
+          <li>Real homes often run longer in peak summer; we show a band, not a single point.</li>
+          <li>Tariffs vary by state and slab; peak hours make timing-aware control more valuable.</li>
+          <li>CO₂ uses published grid average intensity — update when CEA releases newer figures.</li>
+          <li>Controller comparison always uses the same building model and weather trace.</li>
         </ul>
       </section>
     </div>

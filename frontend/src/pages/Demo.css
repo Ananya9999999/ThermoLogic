@@ -1,16 +1,7 @@
-.demo-page {
+.demo {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-}
-
-.page-header h1 {
-  font-size: 1.75rem;
-  margin-bottom: 0.35rem;
-}
-
-.page-header p {
-  max-width: 40rem;
 }
 
 .controls {
@@ -19,35 +10,36 @@
   gap: 1.5rem;
 }
 
-.control-group label {
+.control label {
   display: block;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+  margin-bottom: 0.5rem;
 }
 
-.toggle-row {
+.seg {
   display: flex;
   gap: 0.4rem;
 }
 
-.toggle {
-  padding: 0.45rem 0.9rem;
-  border-radius: var(--radius-sm);
+.seg button {
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-muted);
   font-size: 0.875rem;
   font-weight: 500;
+  transition: all 0.2s;
 }
 
-.toggle.active {
+.seg button.on {
   background: var(--primary-soft);
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--sage);
+  color: var(--sage-dark);
 }
 
 .hint {
@@ -57,9 +49,9 @@
   margin-top: 0.4rem;
 }
 
-.control-group input[type="range"] {
+.control input[type="range"] {
   width: 100%;
-  accent-color: var(--primary);
+  accent-color: var(--sage);
 }
 
 .metrics-row {
@@ -68,33 +60,24 @@
   gap: 0.85rem;
 }
 
-.metric {
+.m-card {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
 }
 
 .m-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+  font-weight: 600;
 }
 
-.m-value {
-  font-size: 1.5rem;
+.m-val {
+  font-size: 1.55rem;
   font-weight: 700;
   color: var(--text);
-}
-
-.m-value.success {
-  color: var(--success);
-}
-
-.m-value .vs {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-soft);
 }
 
 .m-sub {
@@ -102,13 +85,13 @@
   color: var(--text-soft);
 }
 
-.chart-card h2 {
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
+.chart-block h2 {
+  font-size: 1.15rem;
+  margin-bottom: 0.35rem;
 }
 
 .chart-desc {
-  font-size: 0.875rem;
+  font-size: 0.88rem;
   margin-bottom: 0.75rem;
 }
 
@@ -118,25 +101,23 @@
   gap: 1rem;
 }
 
-.script ol {
-  margin-left: 1.25rem;
+.script-block h2 {
+  font-size: 1.2rem;
+  margin-bottom: 0.85rem;
+}
+
+.script-block ol {
+  margin-left: 1.2rem;
   color: var(--text-muted);
 }
 
-.script li {
-  margin-bottom: 0.6rem;
+.script-block li {
+  margin-bottom: 0.55rem;
   font-size: 0.95rem;
 }
 
-.script h2 {
-  font-size: 1.1rem;
-  margin-bottom: 0.75rem;
-}
-
 @media (max-width: 900px) {
-  .controls,
-  .metrics-row,
-  .two-col {
+  .controls, .metrics-row, .two-col {
     grid-template-columns: 1fr;
   }
 }

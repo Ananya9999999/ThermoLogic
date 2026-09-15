@@ -1,0 +1,27 @@
+.float-layer {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.float-icon {
+  position: absolute;
+  opacity: 0.14;
+  will-change: transform;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(61, 50, 44, 0.06);
+}
+
+@media (max-width: 700px) {
+  .float-icon {
+    opacity: 0.1;
+    padding: 8px;
+  }
+}
