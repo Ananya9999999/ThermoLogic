@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { calculateHeatIndex, comfortStatus, type ComfortStatus } from "./heatIndex";
 import "./IndoorClimateCard.css";
 
@@ -7,7 +7,7 @@ interface Props {
   humidity?: number;
   comfortMin?: number;
   comfortMax?: number;
-  /** When true, show judge demo sliders */
+  /** Judge-only sliders; off by default for live data */
   demoControls?: boolean;
 }
 
@@ -16,13 +16,12 @@ function badgeClass(s: ComfortStatus): string {
 }
 
 function gaugeColor(s: ComfortStatus): string {
-  if (s === "Optimal") return "#10b981";
-  if (s === "Cool") return "#06b6d4";
-  if (s === "Slightly Humid" || s === "Warm") return "#f59e0b";
-  return "#ef4444";
+  if (s === "Optimal") return "#6b7c3e";
+  if (s === "Cool") return "#5a6d76";
+  if (s === "Slightly Humid" || s === "Warm") return "#8f5b34";
+  return "#a63d2f";
 }
 
-/** Map feels-like into 0–1 relative to comfort band */
 function gaugeProgress(feels: number, min: number, max: number): number {
   const pad = 3;
   const lo = min - pad;
@@ -31,27 +30,26 @@ function gaugeProgress(feels: number, min: number, max: number): number {
 }
 
 export default function IndoorClimateCard({
-  tempC: tempProp = 26.5,
-  humidity: humProp = 62,
-  comfortMin = 24,
-  comfortMax = 26.5,
-  demoControls = true,
+  tempC: tempProp = 24,
+  humidity: humProp = 55,
+  comfortMin = 22,
+  comfortMax = 26,
+  demoControls = false,
 }: Props) {
-  const [demo, setDemo] = useState(true);
   const [tempC, setTempC] = useState(tempProp);
   const [humidity, setHumidity] = useState(humProp);
 
-  // Sync external when not in demo mode
-  const t = tempC;
-  const h = humidity;
+  useEffect(() => {
+    setTempC(tempProp);
+    setHumidity(humProp);
+  }, [tempProp, humProp]);
 
-  const feels = useMemo(() => calculateHeatIndex(t, h), [t, h]);
-  const delta = feels - t;
-  const status = comfortStatus(feels, h);
+  const feels = useMemo(() => calculateHeatIndex(tempC, humidity), [tempC, humidity]);
+  const delta = feels - tempC;
+  const status = comfortStatus(feels, humidity);
   const progress = gaugeProgress(feels, comfortMin, comfortMax);
   const color = gaugeColor(status);
 
-  // Semi-circle path (viewBox 0 0 200 110)
   const r = 80;
   const cx = 100;
   const cy = 100;
@@ -71,7 +69,7 @@ export default function IndoorClimateCard({
   return (
     <div className="icc" role="region" aria-label="Indoor climate">
       <div className="icc-header">
-        <div className="icc-title">Indoor feels-like</div>
+        <div className="icc-title">Indoor feels-like (ML)</div>
         <span className={`icc-badge ${badgeClass(status)}`}>{status}</span>
       </div>
       <div className="icc-feels">
@@ -80,86 +78,47 @@ export default function IndoorClimateCard({
       </div>
       <div className="icc-delta">
         {delta >= 0 ? "+" : ""}
-        {delta.toFixed(1)}°C due to {Math.round(h)}% humidity
+        {delta.toFixed(1)} vs dry-bulb {tempC.toFixed(1)}°C · RH {humidity.toFixed(0)}%
       </div>
-      <div className="icc-pills">
-        <div className="icc-pill">
-          <div className="k">Raw temp</div>
-          <div className="v">{t.toFixed(1)}°C</div>
-        </div>
-        <div className="icc-pill">
-          <div className="k">Humidity</div>
-          <div className="v">{Math.round(h)}%</div>
-        </div>
-        <div className="icc-pill">
-          <div className="k">Band</div>
-          <div className="v">
-            {comfortMin}–{comfortMax}
-          </div>
-        </div>
-      </div>
-      <div className="icc-gauge-wrap" aria-hidden>
-        <svg viewBox="0 0 200 115">
-          <path
-            d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-            fill="none"
-            stroke="rgba(107,76,50,0.12)"
-            strokeWidth="14"
-            strokeLinecap="round"
-          />
-          {arc && (
-            <path
-              d={arc}
-              fill="none"
-              stroke={color}
-              strokeWidth="14"
-              strokeLinecap="round"
-            />
-          )}
-          <text x="100" y="88" textAnchor="middle" fontSize="13" fill="#8b7355" fontWeight="600">
-            Comfort zone
-          </text>
-        </svg>
-        <div className="icc-gauge-label">
-          Relative to {comfortMin}–{comfortMax}°C feels-like
-        </div>
+      <svg className="icc-gauge" viewBox="0 0 200 110" aria-hidden>
+        <path
+          d={`M ${x1} ${y1} A ${r} ${r} 0 1 1 ${cx + r} ${cy}`}
+          fill="none"
+          stroke="rgba(107,76,50,0.12)"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+        {arc && (
+          <path d={arc} fill="none" stroke={color} strokeWidth="12" strokeLinecap="round" />
+        )}
+      </svg>
+      <div className="icc-band">
+        Comfort band {comfortMin.toFixed(1)}–{comfortMax.toFixed(1)}°C
       </div>
       {demoControls && (
-        <div className="icc-dev">
-          <div className="icc-dev-title">Demo controls — drag to recalculate feels-like</div>
-          <div className="icc-sliders">
-            <label>
-              Raw temperature: <strong>{tempC.toFixed(1)}°C</strong>
-              <input
-                type="range"
-                min={18}
-                max={40}
-                step={0.1}
-                value={tempC}
-                onChange={(e) => {
-                  setDemo(true);
-                  setTempC(Number(e.target.value));
-                }}
-              />
-            </label>
-            <label>
-              Humidity: <strong>{Math.round(humidity)}%</strong>
-              <input
-                type="range"
-                min={20}
-                max={95}
-                step={1}
-                value={humidity}
-                onChange={(e) => {
-                  setDemo(true);
-                  setHumidity(Number(e.target.value));
-                }}
-              />
-            </label>
-            <p className="icc-dev-hint">
-              Feels-like updates instantly via NWS Heat Index (Rothfusz). Try 30°C + 70% RH.
-            </p>
-          </div>
+        <div className="icc-demo">
+          <label>
+            Temp {tempC.toFixed(1)}
+            <input
+              type="range"
+              min={18}
+              max={34}
+              step={0.1}
+              value={tempC}
+              onChange={(e) => setTempC(+e.target.value)}
+            />
+          </label>
+          <label>
+            RH {humidity.toFixed(0)}
+            <input
+              type="range"
+              min={30}
+              max={80}
+              step={1}
+              value={humidity}
+              onChange={(e) => setHumidity(+e.target.value)}
+            />
+          </label>
         </div>
       )}
     </div>

@@ -358,6 +358,7 @@ async def api_dashboard(
             tonnage=a["tonnage"],
             t_min=a["t_min"],
             t_max=a["t_max"],
+            use_live_weather=True,
         )
         sim = await _run_sim_for(body, a)
         m = sim.metrics

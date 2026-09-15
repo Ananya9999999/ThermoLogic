@@ -44,7 +44,7 @@ class Settings:
     default_city: str = "Bengaluru"
     default_lat: float = 12.9716
     default_lon: float = 77.5946
-    use_live_weather: bool = False
+    use_live_weather: bool = True
     actuation_enabled: bool = False
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     host: str = "0.0.0.0"

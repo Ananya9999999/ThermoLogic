@@ -27,7 +27,7 @@ export default function LiveHub() {
   useReveal();
   const { user } = useAuth();
   const [mode, setMode] = useState<"heatwave" | "smooth">("heatwave");
-  const [liveWeather, setLiveWeather] = useState(false);
+  const [liveWeather, setLiveWeather] = useState(true);
   const [catalog, setCatalog] = useState<{ acs: CatalogItem[]; refrigerators: CatalogItem[] }>({ acs: [], refrigerators: [] });
   const [pred, setPred] = useState<Awaited<ReturnType<typeof api.runPredict>> | null>(null);
 
@@ -82,7 +82,11 @@ export default function LiveHub() {
       hours: 48,
       appliance_id: id,
       policy: "mpc",
-    }).then(setPred).catch(() => setPred(null));
+    }).then(setPred).catch((e) => {
+      console.error("predict failed", e);
+      setPred(null);
+      setError(e instanceof Error ? e.message : "ML prediction failed");
+    });
   }, [selectedId, mode, liveWeather, dash?.appliances]);
 
 
