@@ -1,5 +1,5 @@
 .navbar {
-  background: rgba(250, 247, 247, 0.9);
+  background: rgba(255, 253, 248, 0.92);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-soft);
   position: sticky;
@@ -25,7 +25,7 @@
 
 .brand:hover {
   text-decoration: none;
-  color: var(--sage-dark);
+  color: var(--olive-dark);
 }
 
 .brand-icon {
@@ -33,7 +33,7 @@
   height: 34px;
   border-radius: 10px;
   background: var(--primary-soft);
-  color: var(--sage-dark);
+  color: var(--olive-dark);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -71,7 +71,7 @@
 
 .nav-link.active {
   background: var(--primary-soft);
-  color: var(--sage-dark);
+  color: var(--olive-dark);
 }
 
 .nav-auth {

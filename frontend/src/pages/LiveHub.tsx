@@ -7,6 +7,7 @@ import {
   Plus, Trash2, RefreshCw, Home, Snowflake, Flame, Wind, Cpu,
 } from "lucide-react";
 import * as api from "../api";
+import type { CatalogItem } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useReveal } from "../hooks/useReveal";
 import "./LiveHub.css";
@@ -22,6 +23,10 @@ export default function LiveHub() {
   useReveal();
   const { user } = useAuth();
   const [mode, setMode] = useState<"heatwave" | "smooth">("heatwave");
+  const [liveWeather, setLiveWeather] = useState(false);
+  const [catalog, setCatalog] = useState<{ acs: CatalogItem[]; refrigerators: CatalogItem[] }>({ acs: [], refrigerators: [] });
+  const [pred, setPred] = useState<Awaited<ReturnType<typeof api.runPredict>> | null>(null);
+
   const [dash, setDash] = useState<Awaited<ReturnType<typeof api.fetchDashboard>> | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -37,7 +42,7 @@ export default function LiveHub() {
   // New appliance form
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
-    name: "", kind: "ac", room: "Bedroom", tonnage: 1.5, iseer: 3.8, t_min: 22, t_max: 26,
+    name: "", kind: "ac", room: "Bedroom", tonnage: 1.5, iseer: 3.8, star: 3, power_w: 1400, catalog_id: "" as string, t_min: 22, t_max: 26,
   });
 
   const loadDash = useCallback(async () => {
@@ -57,6 +62,24 @@ export default function LiveHub() {
   }, [mode, selectedId]);
 
   useEffect(() => { loadDash(); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    api.fetchCatalog().then((c) => setCatalog({ acs: c.acs, refrigerators: c.refrigerators })).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId && !dash?.appliances?.length) return;
+    const id = selectedId || dash?.appliances?.[0]?.id;
+    if (!id) return;
+    api.runPredict({
+      mode,
+      use_live_weather: liveWeather,
+      hours: 48,
+      appliance_id: id,
+      policy: "mpc",
+    }).then(setPred).catch(() => setPred(null));
+  }, [selectedId, mode, liveWeather, dash?.appliances]);
+
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -104,6 +127,9 @@ export default function LiveHub() {
           <button type="button" className={mode === "heatwave" ? "on" : ""} onClick={() => setMode("heatwave")}>Heatwave</button>
           <button type="button" className={mode === "smooth" ? "on" : ""} onClick={() => setMode("smooth")}>Smooth</button>
         </div>
+        <button type="button" className={liveWeather ? "btn btn-primary" : "btn btn-outline"} onClick={() => setLiveWeather((v) => !v)}>
+          {liveWeather ? "Live weather ON" : "Synthetic weather"}
+        </button>
         <button type="button" className="btn btn-outline" onClick={loadDash} disabled={busy}>
           <RefreshCw size={15} /> {busy ? "Updating…" : "Refresh"}
         </button>
@@ -201,6 +227,48 @@ export default function LiveHub() {
         </section>
       )}
 
+      {/* ML prediction */}
+      {pred && (
+        <section className="card chart-panel reveal">
+          <h2>ML forecast · T, humidity &amp; energy</h2>
+          <p className="muted">
+            {pred.weather_source === "live" ? "Live weather" : "Synthetic"} · {pred.city}
+            {" · "}Suggested band {pred.recommended_setpoint.t_min}–{pred.recommended_setpoint.t_max}°C
+            ({pred.recommended_setpoint.reason})
+          </p>
+          <div className="sim-metrics">
+            <span>Energy {pred.summary.energy_kwh} kWh</span>
+            <span>Cost ₹{pred.summary.cost_inr}</span>
+            <span>Comfort {pred.summary.comfort_pct}%</span>
+            <span>Avg RH {pred.summary.avg_humidity}%</span>
+            <span>{pred.summary.star}★ · {pred.summary.power_w}W · η {pred.summary.efficiency_scale}</span>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <ComposedChart data={pred.points}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="hour" tick={{ fontSize: 11, fill: "#8a7e6c" }} />
+              <YAxis yAxisId="t" tick={{ fontSize: 11, fill: "#8a7e6c" }} />
+              <YAxis yAxisId="h" orientation="right" domain={[30, 80]} tick={{ fontSize: 11, fill: "#8a7e6c" }} />
+              <Tooltip />
+              <Legend />
+              <Area yAxisId="t" type="monotone" dataKey="t_out" name="Outdoor" fill="#d4c4a8" stroke="#6b4c32" fillOpacity={0.25} />
+              <Line yAxisId="t" type="monotone" dataKey="t_in_pred" name="Predicted indoor" stroke="#6b7c3e" strokeWidth={2.5} dot={false} />
+              <Line yAxisId="h" type="monotone" dataKey="humidity_pred" name="Predicted RH" stroke="#8b7355" strokeWidth={2} dot={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+          {pred.research?.length > 0 && (
+            <div className="research-notes">
+              <strong>Research basis</strong>
+              <ul>
+                {pred.research.map((r) => (
+                  <li key={r.title}><em>{r.title}</em> ({r.year}) — {r.relevance}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Calculator joined */}
       <section className="card calc-join reveal">
         <h2>Annual savings calculator</h2>
@@ -243,13 +311,57 @@ export default function LiveHub() {
             <label className="field">Name
               <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Bedroom AC" />
             </label>
+            <label className="field">From catalog (auto-fills specs)
+              <select
+                value={form.catalog_id}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const item = [...catalog.acs, ...catalog.refrigerators].find((x) => x.id === id);
+                  if (!item) {
+                    setForm((f) => ({ ...f, catalog_id: "" }));
+                    return;
+                  }
+                  setForm((f) => ({
+                    ...f,
+                    catalog_id: id,
+                    name: f.name || `${item.brand} ${item.model}`,
+                    kind: item.kind === "refrigerator" ? "refrigerator" : item.kind,
+                    tonnage: item.tonnage ?? f.tonnage,
+                    iseer: item.iseer ?? f.iseer,
+                    star: item.star,
+                    power_w: item.power_w,
+                  }));
+                }}
+              >
+                <option value="">Custom / manual</option>
+                <optgroup label="Air conditioners">
+                  {catalog.acs.map((a) => (
+                    <option key={a.id} value={a.id}>{a.brand} {a.model} · {a.star}★ · {a.power_w}W</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Refrigerators">
+                  {catalog.refrigerators.map((a) => (
+                    <option key={a.id} value={a.id}>{a.brand} {a.model} · {a.star}★ · {a.power_w}W</option>
+                  ))}
+                </optgroup>
+              </select>
+            </label>
             <label className="field">Type
               <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
                 <option value="ac">Split / window AC</option>
+                <option value="refrigerator">Refrigerator</option>
                 <option value="heater">Room heater</option>
                 <option value="heat_pump">Heat pump</option>
                 <option value="fan_coil">Fan coil</option>
               </select>
+            </label>
+            <label className="field">Star rating ({form.star}★)
+              <input type="range" min={1} max={5} step={1} value={form.star}
+                onChange={(e) => setForm({ ...form, star: +e.target.value })} />
+            </label>
+            <label className="field">Rated power W ({form.power_w})
+              <input type="range" min={80} max={2500} step={10} value={form.power_w}
+                onChange={(e) => setForm({ ...form, power_w: +e.target.value })} />
             </label>
             <label className="field">Room
               <input value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} />

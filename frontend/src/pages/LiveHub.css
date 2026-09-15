@@ -62,3 +62,12 @@
 @media (max-width: 900px) {
   .agg-row, .hub-grid, .calc-grid { grid-template-columns: 1fr; }
 }
+.research-notes {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.research-notes ul { margin: 0.4rem 0 0 1.1rem; }
+.research-notes li { margin-bottom: 0.35rem; }

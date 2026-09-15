@@ -149,10 +149,13 @@ ApplianceKind = Literal["ac", "heater", "heat_pump", "fan_coil"]
 
 class ApplianceCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=80)
-    kind: ApplianceKind = "ac"
+    kind: str = "ac"
     room: str = Field("Living room", max_length=80)
     tonnage: float = Field(1.5, ge=0.5, le=5.0)
     iseer: float = Field(3.8, ge=2.0, le=7.0)
+    star: int = Field(3, ge=1, le=5)
+    power_w: float = Field(1400, ge=50, le=5000)
+    catalog_id: Optional[str] = None
     t_min: float = Field(22.0, ge=16, le=28)
     t_max: float = Field(26.0, ge=20, le=32)
     enabled: bool = True
@@ -161,10 +164,13 @@ class ApplianceCreate(BaseModel):
 
 class ApplianceUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=80)
-    kind: Optional[ApplianceKind] = None
+    kind: Optional[str] = None
     room: Optional[str] = None
     tonnage: Optional[float] = Field(None, ge=0.5, le=5.0)
     iseer: Optional[float] = Field(None, ge=2.0, le=7.0)
+    star: Optional[int] = Field(None, ge=1, le=5)
+    power_w: Optional[float] = Field(None, ge=50, le=5000)
+    catalog_id: Optional[str] = None
     t_min: Optional[float] = None
     t_max: Optional[float] = None
     enabled: Optional[bool] = None
@@ -179,6 +185,9 @@ class ApplianceOut(BaseModel):
     room: str
     tonnage: float
     iseer: float
+    star: int = 3
+    power_w: float = 1400
+    catalog_id: Optional[str] = None
     t_min: float
     t_max: float
     enabled: bool
@@ -191,3 +200,39 @@ class DashboardResponse(BaseModel):
     appliances: list[ApplianceOut]
     aggregate: dict[str, Any]
     simulations: list[dict[str, Any]]
+
+
+class PredictRequest(BaseModel):
+    mode: Literal["heatwave", "smooth"] = "heatwave"
+    use_live_weather: bool = False
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    city: Optional[str] = None
+    hours: int = Field(48, ge=12, le=168)
+    appliance_id: Optional[int] = None
+    catalog_id: Optional[str] = None
+    tonnage: float = 1.5
+    star: int = 3
+    iseer: float = 3.5
+    power_w: float = 1400
+    kind: str = "ac"
+    t_min: float = 22.0
+    t_max: float = 26.0
+    t_in0: float = 24.0
+    policy: Literal["mpc", "reactive"] = "mpc"
+
+
+class RecommendedSetpoint(BaseModel):
+    t_min: float
+    t_max: float
+    target: float
+    reason: str = ""
+
+
+class PredictResponse(BaseModel):
+    weather_source: str
+    city: str
+    recommended_setpoint: RecommendedSetpoint
+    research: list[dict[str, Any]] = []
+    points: list[dict[str, Any]]
+    summary: dict[str, Any]

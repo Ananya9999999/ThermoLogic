@@ -10,7 +10,7 @@ export default function Home() {
     <div className="container home-public">
       <section className="hero-public reveal">
         <div className="hero-orb" aria-hidden />
-        <span className="badge badge-sage">Forecast-aware comfort</span>
+        <span className="badge badge-olive">Forecast-aware comfort</span>
         <h1>Climate control that plans ahead</h1>
         <p className="lead">
           ThermoLogic pre-cools before heatwaves, shifts load off peak tariffs,

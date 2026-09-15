@@ -84,6 +84,9 @@ def _appliance_out(a: dict) -> ApplianceOut:
         room=a["room"],
         tonnage=a["tonnage"],
         iseer=a["iseer"],
+        star=int(a.get("star") or 3),
+        power_w=float(a.get("power_w") or 1400),
+        catalog_id=a.get("catalog_id"),
         t_min=a["t_min"],
         t_max=a["t_max"],
         enabled=a["enabled"],
@@ -156,7 +159,10 @@ def signup(body: SignupRequest) -> AuthResponse:
             "kind": "ac",
             "room": "Living room",
             "tonnage": 1.5,
-            "iseer": 3.8,
+            "iseer": 3.55,
+            "star": 3,
+            "power_w": 1450,
+            "catalog_id": "ac_voltas_15_3",
             "t_min": 22,
             "t_max": 26,
         },
@@ -253,9 +259,14 @@ async def _run_sim_for(
     elif body.tonnage is not None:
         cfg.u_cool_max = _u_cool_for_tonnage(body.tonnage)
     elif appliance:
-        cfg.u_cool_max = _u_cool_for_tonnage(float(appliance.get("tonnage", 1.5)))
-        if appliance.get("kind") == "heater":
-            cfg.u_heat_max = max(cfg.u_heat_max, cfg.u_cool_max)
+        pw = float(appliance.get("power_w") or 0)
+        if pw > 0:
+            iseer = float(appliance.get("iseer") or 3.5)
+            cfg.u_cool_max = (pw / 1000.0) * min(1.35, max(0.7, iseer / 3.5)) * 0.95
+        else:
+            cfg.u_cool_max = _u_cool_for_tonnage(float(appliance.get("tonnage", 1.5)))
+        if appliance.get("kind") in ("heater", "heat_pump"):
+            cfg.u_heat_max = max(cfg.u_heat_max, pw / 1000.0 if pw else cfg.u_cool_max)
     if body.price_offpeak is not None:
         cfg.price_offpeak = body.price_offpeak
     if body.price_peak is not None:
@@ -387,6 +398,142 @@ async def api_dashboard(
 @app.post("/api/calculator", response_model=CalculatorResponse)
 def api_calculator(body: CalculatorRequest) -> CalculatorResponse:
     return compute_savings(body)
+
+
+
+# ----- Catalog & ML predict -----
+from .catalog import get_catalog_item, list_acs, list_refrigerators, research_refs
+from .ml_model import AppliancePhysics, get_predictor
+from .models import PredictRequest, PredictResponse
+
+
+@app.get("/api/catalog")
+def api_catalog() -> dict:
+    return {
+        "acs": list_acs(),
+        "refrigerators": list_refrigerators(),
+        "research": research_refs(),
+    }
+
+
+@app.get("/api/catalog/{item_id}")
+def api_catalog_item(item_id: str) -> dict:
+    item = get_catalog_item(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Catalog item not found")
+    return item
+
+
+def _recommended_setpoint(t_out_avg: float, t_out_max: float, humidity_avg: float | None) -> dict:
+    """Weather-aware comfort suggestion (ASHRAE-inspired band shift)."""
+    # Hotter outdoors → allow slightly higher indoor target to save energy
+    base = 24.0
+    if t_out_max >= 38:
+        base = 25.5
+    elif t_out_max >= 34:
+        base = 25.0
+    elif t_out_avg <= 26:
+        base = 23.5
+    t_min = base - 2.0
+    t_max = base + 2.0
+    if humidity_avg and humidity_avg > 70:
+        t_max = min(t_max, 25.0)  # tighter when muggy
+    return {
+        "t_min": round(t_min, 1),
+        "t_max": round(t_max, 1),
+        "target": round(base, 1),
+        "reason": (
+            f"Based on forecast peak {t_out_max:.1f}°C and avg {t_out_avg:.1f}°C"
+            + (f", RH~{humidity_avg:.0f}%" if humidity_avg else "")
+        ),
+    }
+
+
+@app.post("/api/predict", response_model=PredictResponse)
+async def api_predict(
+    body: PredictRequest,
+    user: dict = Depends(get_current_user),
+) -> PredictResponse:
+    """ML + physics hybrid: forecast indoor T/RH/energy under MPC or reactive policy."""
+    appliance = None
+    if body.appliance_id is not None:
+        appliance = get_appliance(user["id"], body.appliance_id)
+        if not appliance:
+            raise HTTPException(status_code=404, detail="Appliance not found")
+
+    cat = get_catalog_item(body.catalog_id) if body.catalog_id else None
+    if appliance:
+        phys = AppliancePhysics(
+            tonnage=float(appliance.get("tonnage", 1.5)),
+            star=int(appliance.get("star") or 3),
+            iseer=float(appliance.get("iseer") or 3.5),
+            power_w=float(appliance.get("power_w") or 1400),
+            kind=str(appliance.get("kind") or "ac"),
+        )
+        t_min, t_max = float(appliance["t_min"]), float(appliance["t_max"])
+    else:
+        phys = AppliancePhysics(
+            tonnage=cat["tonnage"] if cat and "tonnage" in cat else body.tonnage,
+            star=int(cat["star"]) if cat else body.star,
+            iseer=float(cat["iseer"]) if cat and "iseer" in cat else body.iseer,
+            power_w=float(cat["power_w"]) if cat else body.power_w,
+            kind=str(cat["kind"]) if cat else body.kind,
+        )
+        t_min, t_max = body.t_min, body.t_max
+
+    weather = await get_weather(
+        settings,
+        mode=body.mode,
+        use_live=body.use_live_weather,
+        lat=body.lat,
+        lon=body.lon,
+        city=body.city,
+        hours=body.hours,
+    )
+    t_outs = [p.t_out for p in weather.points]
+    prices = [p.price for p in weather.points]
+    hums = [p.humidity_out for p in weather.points if p.humidity_out is not None]
+    rec = _recommended_setpoint(
+        sum(t_outs) / len(t_outs),
+        max(t_outs),
+        sum(hums) / len(hums) if hums else None,
+    )
+    # Prefer weather-recommended band if client sent defaults
+    if body.appliance_id is None and abs(body.t_min - 22) < 0.01 and abs(body.t_max - 26) < 0.01:
+        t_min, t_max = rec["t_min"], rec["t_max"]
+
+    pred = get_predictor()
+    points = pred.predict_horizon(
+        t_outs,
+        prices,
+        phys,
+        t_in0=body.t_in0,
+        t_min=t_min,
+        t_max=t_max,
+        policy=body.policy,
+    )
+    energy = sum(p["energy_kwh"] for p in points)
+    comfort = 100.0 * sum(1 for p in points if p["comfort_ok"]) / max(1, len(points))
+    cost = sum(p["energy_kwh"] * p["price"] for p in points)
+
+    return PredictResponse(
+        weather_source=weather.source,
+        city=weather.city,
+        recommended_setpoint=rec,
+        research=research_refs()[:3],
+        points=points,
+        summary={
+            "energy_kwh": round(energy, 2),
+            "cost_inr": round(cost, 0),
+            "comfort_pct": round(comfort, 1),
+            "avg_humidity": round(sum(p["humidity_pred"] for p in points) / len(points), 1),
+            "star": phys.star,
+            "iseer": phys.iseer,
+            "power_w": phys.power_w,
+            "efficiency_scale": round(phys.efficiency_scale, 3),
+            "policy": body.policy,
+        },
+    )
 
 
 @app.post("/api/actuate", response_model=ActuationResponse)

@@ -27,6 +27,9 @@ export type Appliance = {
   room: string;
   tonnage: number;
   iseer: number;
+  star?: number;
+  power_w?: number;
+  catalog_id?: string | null;
   t_min: number;
   t_max: number;
   enabled: boolean;
@@ -156,3 +159,42 @@ export async function fetchImpact() {
 }
 
 export { API_URL };
+
+export type CatalogItem = {
+  id: string;
+  brand: string;
+  model: string;
+  kind: string;
+  tonnage?: number;
+  star: number;
+  iseer?: number;
+  power_w: number;
+  annual_kwh_label?: number;
+  annual_kwh?: number;
+  capacity_l?: number;
+  type?: string;
+  notes?: string;
+};
+
+export async function fetchCatalog() {
+  return handle<{ acs: CatalogItem[]; refrigerators: CatalogItem[]; research: Record<string, unknown>[] }>(
+    await fetch(`${API_URL}/api/catalog`)
+  );
+}
+
+export async function runPredict(body: Record<string, unknown>) {
+  return handle<{
+    weather_source: string;
+    city: string;
+    recommended_setpoint: { t_min: number; t_max: number; target: number; reason: string };
+    research: { title: string; relevance: string; year: number }[];
+    points: Record<string, number | boolean>[];
+    summary: Record<string, number | string>;
+  }>(
+    await fetch(`${API_URL}/api/predict`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    })
+  );
+}

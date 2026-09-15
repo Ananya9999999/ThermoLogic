@@ -1,0 +1,56 @@
+{
+  "acs": [
+    {"id": "ac_voltas_15_3", "brand": "Voltas", "model": "185V WZJ", "kind": "ac", "tonnage": 1.5, "star": 3, "iseer": 3.55, "power_w": 1450, "annual_kwh_label": 980, "type": "inverter_split", "notes": "Common mid-tier 1.5T"},
+    {"id": "ac_lg_15_5", "brand": "LG", "model": "MS-Q18YNZA", "kind": "ac", "tonnage": 1.5, "star": 5, "iseer": 5.2, "power_w": 1180, "annual_kwh_label": 720, "type": "inverter_split", "notes": "High-efficiency 5-star"},
+    {"id": "ac_daikin_10_5", "brand": "Daikin", "model": "FTKF35TV", "kind": "ac", "tonnage": 1.0, "star": 5, "iseer": 5.1, "power_w": 820, "annual_kwh_label": 540, "type": "inverter_split", "notes": "1T bedroom unit"},
+    {"id": "ac_samsung_20_3", "brand": "Samsung", "model": "AR20BY5AEWK", "kind": "ac", "tonnage": 2.0, "star": 3, "iseer": 3.6, "power_w": 1950, "annual_kwh_label": 1280, "type": "inverter_split", "notes": "Larger living-room unit"},
+    {"id": "ac_bluestar_15_4", "brand": "Blue Star", "model": "IC518DNTU", "kind": "ac", "tonnage": 1.5, "star": 4, "iseer": 4.2, "power_w": 1320, "annual_kwh_label": 850, "type": "inverter_split", "notes": "4-star balance"},
+    {"id": "ac_hitachi_15_5", "brand": "Hitachi", "model": "RSOG518HDEA", "kind": "ac", "tonnage": 1.5, "star": 5, "iseer": 5.0, "power_w": 1210, "annual_kwh_label": 740, "type": "inverter_split", "notes": "Premium efficiency"},
+    {"id": "ac_window_15_2", "brand": "Generic", "model": "Window 1.5T", "kind": "ac", "tonnage": 1.5, "star": 2, "iseer": 2.9, "power_w": 1650, "annual_kwh_label": 1180, "type": "window", "notes": "Older window AC baseline"},
+    {"id": "ac_carrier_12_5", "brand": "Carrier", "model": "CAI12EK5R39F0", "kind": "ac", "tonnage": 1.2, "star": 5, "iseer": 4.8, "power_w": 980, "annual_kwh_label": 620, "type": "inverter_split", "notes": "1.2T efficient"}
+  ],
+  "refrigerators": [
+    {"id": "ref_lg_260_3", "brand": "LG", "model": "GL-I292RPZL", "kind": "refrigerator", "capacity_l": 260, "star": 3, "annual_kwh": 210, "power_w": 120, "type": "frost_free", "notes": "Double door mid size"},
+    {"id": "ref_samsung_253_4", "brand": "Samsung", "model": "RT28T3743S8", "kind": "refrigerator", "capacity_l": 253, "star": 4, "annual_kwh": 175, "power_w": 105, "type": "frost_free", "notes": "4-star efficient"},
+    {"id": "ref_whirlpool_200_2", "brand": "Whirlpool", "model": "200 IMS", "kind": "refrigerator", "capacity_l": 200, "star": 2, "annual_kwh": 245, "power_w": 130, "type": "direct_cool", "notes": "Budget single door"},
+    {"id": "ref_godrej_330_5", "brand": "Godrej", "model": "RT EONVALOR 330", "kind": "refrigerator", "capacity_l": 330, "star": 5, "annual_kwh": 155, "power_w": 95, "type": "frost_free", "notes": "5-star large"},
+    {"id": "ref_haier_345_3", "brand": "Haier", "model": "HRB-3404BS-E", "kind": "refrigerator", "capacity_l": 345, "star": 3, "annual_kwh": 230, "power_w": 125, "type": "frost_free", "notes": "Family size"}
+  ],
+  "research": [
+    {
+      "id": "mpc_hvac_survey",
+      "title": "Model Predictive Control for Building HVAC — a review",
+      "relevance": "MPC reduces HVAC energy while enforcing comfort constraints using forecasts.",
+      "year": 2018,
+      "note": "Supports pre-cooling and tariff-aware scheduling vs reactive control."
+    },
+    {
+      "id": "bee_iseer",
+      "title": "BEE Schedule for Room Air Conditioners (ISEER)",
+      "relevance": "Star labels and annual energy consumption assume standardized operating hours (~1600 h).",
+      "year": 2019,
+      "note": "Used for catalog annual_kwh_label and efficiency factors."
+    },
+    {
+      "id": "cea_grid_ef",
+      "title": "CEA CO2 Baseline Database for the Indian Power Sector",
+      "relevance": "Grid emission factors for converting kWh savings to tCO2.",
+      "year": 2024,
+      "note": "Order-of-magnitude ~0.71 tCO2/MWh weighted average in recent releases."
+    },
+    {
+      "id": "residential_ac_india",
+      "title": "Residential AC load patterns in tropical India (field studies)",
+      "relevance": "AC dominates summer residential load; runtime and peak coincidence drive bills.",
+      "year": 2022,
+      "note": "Motivates occupancy-aware bands and peak-shifting."
+    },
+    {
+      "id": "humidity_comfort",
+      "title": "Thermal comfort and humidity in warm climates",
+      "relevance": "RH above ~65% degrades perceived comfort even at acceptable dry-bulb temperatures.",
+      "year": 2017,
+      "note": "Humidity is modeled as a first-class constraint, not only temperature."
+    }
+  ]
+}

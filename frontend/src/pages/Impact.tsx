@@ -62,6 +62,17 @@ export default function Impact() {
       </div>
 
       <section className="card method reveal">
+        <h2>Research basis</h2>
+        <ul>
+          <li>MPC for building HVAC reviews — forecast-based control vs reactive thermostats.</li>
+          <li>BEE ISEER schedules — star labels and standardized annual hours for AC energy.</li>
+          <li>CEA CO₂ baseline database — grid emission factors for India.</li>
+          <li>Field studies on residential AC load in tropical India — peak and runtime patterns.</li>
+          <li>Thermal comfort literature — humidity as a driver of perceived comfort in warm climates.</li>
+        </ul>
+      </section>
+
+      <section className="card method reveal">
         <h2>Transparent methodology</h2>
         <ul>
           <li>BEE ISEER labels assume on the order of 1,600 operating hours/year as a reference.</li>

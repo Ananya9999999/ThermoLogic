@@ -38,6 +38,9 @@ def init_db() -> None:
                 room TEXT NOT NULL DEFAULT 'Living room',
                 tonnage REAL NOT NULL DEFAULT 1.5,
                 iseer REAL NOT NULL DEFAULT 3.8,
+                star INTEGER NOT NULL DEFAULT 3,
+                power_w REAL NOT NULL DEFAULT 1400,
+                catalog_id TEXT,
                 t_min REAL NOT NULL DEFAULT 22.0,
                 t_max REAL NOT NULL DEFAULT 26.0,
                 enabled INTEGER NOT NULL DEFAULT 1,
@@ -47,6 +50,14 @@ def init_db() -> None:
             )
             """
         )
+        # Migrations for existing DBs
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(appliances)").fetchall()}
+        if "star" not in cols:
+            conn.execute("ALTER TABLE appliances ADD COLUMN star INTEGER NOT NULL DEFAULT 3")
+        if "power_w" not in cols:
+            conn.execute("ALTER TABLE appliances ADD COLUMN power_w REAL NOT NULL DEFAULT 1400")
+        if "catalog_id" not in cols:
+            conn.execute("ALTER TABLE appliances ADD COLUMN catalog_id TEXT")
         conn.commit()
 
 
@@ -115,8 +126,8 @@ def create_appliance(user_id: int, data: dict) -> dict:
         cur = conn.execute(
             """
             INSERT INTO appliances
-            (user_id, name, kind, room, tonnage, iseer, t_min, t_max, enabled, meta_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (user_id, name, kind, room, tonnage, iseer, star, power_w, catalog_id, t_min, t_max, enabled, meta_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -125,6 +136,9 @@ def create_appliance(user_id: int, data: dict) -> dict:
                 data.get("room", "Living room"),
                 data.get("tonnage", 1.5),
                 data.get("iseer", 3.8),
+                int(data.get("star", 3)),
+                float(data.get("power_w", 1400)),
+                data.get("catalog_id"),
                 data.get("t_min", 22.0),
                 data.get("t_max", 26.0),
                 1 if data.get("enabled", True) else 0,
@@ -146,6 +160,7 @@ def update_appliance(user_id: int, appliance_id: int, data: dict) -> dict | None
             """
             UPDATE appliances SET
                 name=?, kind=?, room=?, tonnage=?, iseer=?,
+                star=?, power_w=?, catalog_id=?,
                 t_min=?, t_max=?, enabled=?, meta_json=?
             WHERE id=? AND user_id=?
             """,
@@ -155,6 +170,9 @@ def update_appliance(user_id: int, appliance_id: int, data: dict) -> dict | None
                 merged["room"],
                 merged["tonnage"],
                 merged["iseer"],
+                int(merged.get("star", 3)),
+                float(merged.get("power_w", 1400)),
+                merged.get("catalog_id"),
                 merged["t_min"],
                 merged["t_max"],
                 1 if merged.get("enabled", True) else 0,
