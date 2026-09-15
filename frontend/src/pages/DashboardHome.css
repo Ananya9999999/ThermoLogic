@@ -14,10 +14,21 @@
 
 .dash-two-col {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
   max-width: 1100px;
   margin: 0 auto 1.5rem;
+  align-items: stretch;
+}
+
+.dash-two-col > .bento-cell {
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-two-col > .bento-cell > * {
+  flex: 1;
 }
 
 .bento-cell {

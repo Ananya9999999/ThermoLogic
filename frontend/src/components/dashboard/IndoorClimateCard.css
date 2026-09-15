@@ -64,11 +64,40 @@
   margin: 0 auto 0.5rem;
 }
 .icc-gauge-wrap svg { width: 100%; height: auto; display: block; }
+.icc-gauge {
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  display: block;
+  margin: 0.25rem auto 0.35rem;
+}
 .icc-gauge-label {
   text-align: center;
   font-size: 0.78rem;
   color: var(--stone);
   margin-top: -0.5rem;
+}
+.icc-band {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--stone, #a39882);
+  margin-top: 0.25rem;
+}
+.icc-demo {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+.icc-demo label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--brown-muted, #8b7355);
+}
+.icc-demo input[type="range"] {
+  width: 100%;
+  accent-color: var(--olive, #6b7c3e);
 }
 .icc-dev {
   margin-top: 1rem;

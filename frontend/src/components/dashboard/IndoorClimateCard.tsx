@@ -45,7 +45,6 @@ export default function IndoorClimateCard({
   }, [tempProp, humProp]);
 
   const feels = useMemo(() => calculateHeatIndex(tempC, humidity), [tempC, humidity]);
-  const delta = feels - tempC;
   const status = comfortStatus(feels, humidity);
   const progress = gaugeProgress(feels, comfortMin, comfortMax);
   const color = gaugeColor(status);
@@ -69,17 +68,34 @@ export default function IndoorClimateCard({
   return (
     <div className="icc" role="region" aria-label="Indoor climate">
       <div className="icc-header">
-        <div className="icc-title">Indoor feels-like (ML)</div>
+        <div className="icc-title">Room climate (ML)</div>
         <span className={`icc-badge ${badgeClass(status)}`}>{status}</span>
       </div>
+
+      {/* Primary: room temperature, feels-like, humidity */}
+      <div className="icc-pills">
+        <div className="icc-pill">
+          <div className="k">Room temp</div>
+          <div className="v">{tempC.toFixed(1)}°C</div>
+        </div>
+        <div className="icc-pill">
+          <div className="k">Feels like</div>
+          <div className="v">{feels.toFixed(1)}°C</div>
+        </div>
+        <div className="icc-pill">
+          <div className="k">Humidity</div>
+          <div className="v">{humidity.toFixed(0)}%</div>
+        </div>
+      </div>
+
       <div className="icc-feels">
         {feels.toFixed(1)}
-        <span>°C</span>
+        <span>°C feels</span>
       </div>
       <div className="icc-delta">
-        {delta >= 0 ? "+" : ""}
-        {delta.toFixed(1)} vs dry-bulb {tempC.toFixed(1)}°C · RH {humidity.toFixed(0)}%
+        Dry-bulb {tempC.toFixed(1)}°C · RH {humidity.toFixed(0)}%
       </div>
+
       <svg className="icc-gauge" viewBox="0 0 200 110" aria-hidden>
         <path
           d={`M ${x1} ${y1} A ${r} ${r} 0 1 1 ${cx + r} ${cy}`}
@@ -95,6 +111,7 @@ export default function IndoorClimateCard({
       <div className="icc-band">
         Comfort band {comfortMin.toFixed(1)}–{comfortMax.toFixed(1)}°C
       </div>
+
       {demoControls && (
         <div className="icc-demo">
           <label>

@@ -53,14 +53,26 @@ export default function LiveHub() {
     name: "", kind: "ac", room: "Bedroom", tonnage: 1.5, iseer: 3.8, star: 3, power_w: 1400, catalog_id: "" as string, t_min: 22, t_max: 26,
   });
 
-  const loadDash = useCallback(async () => {
+  const loadDash = useCallback(async (preferId?: number | null) => {
     setBusy(true);
     setError("");
     try {
       const d = await api.fetchDashboard(mode, 48);
       setDash(d);
-      if (d.simulations.length && selectedId == null) {
-        setSelectedId(d.simulations[0].appliance?.id ?? null);
+      const sims = d.simulations || [];
+      const apps = d.appliances || [];
+      // Prefer explicit id, then current selection if still present, else first sim
+      const want =
+        preferId ??
+        (selectedId != null && apps.some((a) => Number(a.id) === Number(selectedId))
+          ? selectedId
+          : null);
+      if (want != null && sims.some((s) => Number(s.appliance?.id) === Number(want))) {
+        setSelectedId(Number(want));
+      } else if (sims.length) {
+        setSelectedId(Number(sims[0].appliance?.id));
+      } else {
+        setSelectedId(null);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load dashboard");
@@ -69,14 +81,18 @@ export default function LiveHub() {
     }
   }, [mode, selectedId]);
 
-  useEffect(() => { loadDash(); }, [mode, liveWeather]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    loadDash();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, liveWeather]);
 
   useEffect(() => {
     api.fetchCatalog().then((c) => setCatalog({ acs: c.acs, refrigerators: c.refrigerators })).catch(() => {});
   }, []);
 
+  // When appliance selection changes, refresh ML predict so trajectory + indoor update together
   useEffect(() => {
-    if (!dash?.appliances?.length && selectedId == null) return;
+    if (selectedId == null && !dash?.appliances?.length) return;
     refreshPredict();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, mode, liveWeather, dash?.appliances?.length]);
@@ -127,10 +143,23 @@ export default function LiveHub() {
   async function addAppliance(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await api.createAppliance(form);
+      const created = await api.createAppliance(form);
       setShowAdd(false);
-      setForm({ name: "", kind: "ac", room: "Bedroom", tonnage: 1.5, iseer: 3.8, t_min: 22, t_max: 26 });
-      await loadDash();
+      setForm({
+        name: "",
+        kind: "ac",
+        room: "Bedroom",
+        tonnage: 1.5,
+        iseer: 3.8,
+        star: 3,
+        power_w: 1400,
+        catalog_id: "",
+        t_min: 22,
+        t_max: 26,
+      });
+      // Reload and select the new appliance so trajectory updates immediately
+      await loadDash(created.id);
+      setSelectedId(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add appliance");
     }
@@ -140,10 +169,13 @@ export default function LiveHub() {
     if (!confirm("Remove this appliance?")) return;
     await api.deleteAppliance(id);
     if (selectedId === id) setSelectedId(null);
-    await loadDash();
+    await loadDash(null);
   }
 
-  const sim = dash?.simulations.find((s) => s.appliance?.id === selectedId) || dash?.simulations[0];
+  // Numeric compare so trajectory switches reliably when selecting an appliance
+  const sim =
+    dash?.simulations.find((s) => Number(s.appliance?.id) === Number(selectedId)) ||
+    dash?.simulations[0];
   const points = sim?.points?.slice(0, 48) || [];
   const agg = dash?.aggregate;
 
@@ -198,9 +230,14 @@ export default function LiveHub() {
         <button type="button" className={liveWeather ? "btn btn-primary" : "btn btn-outline"} onClick={() => setLiveWeather((v) => !v)}>
           {liveWeather ? "Live weather ON" : "Synthetic weather"}
         </button>
-        <button type="button" className="btn btn-outline" onClick={loadDash} disabled={busy}>
-          <RefreshCw size={15} /> {busy ? "Updating…" : "Refresh"}
-        </button>
+        <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => loadDash()}
+            disabled={busy}
+          >
+            <RefreshCw size={15} /> {busy ? "Updating…" : "Refresh"}
+          </button>
         <button type="button" className="btn btn-primary" onClick={() => setShowAdd(true)}>
           <Plus size={15} /> Add appliance
         </button>
@@ -224,8 +261,8 @@ export default function LiveHub() {
             {(dash?.appliances || []).map((a) => {
               const Icon = KIND_ICON[a.kind] || Snowflake;
               return (
-                <li key={a.id} className={selectedId === a.id ? "active" : ""}>
-                  <button type="button" className="app-select" onClick={() => setSelectedId(a.id)}>
+                <li key={a.id} className={Number(selectedId) === Number(a.id) ? "active" : ""}>
+                  <button type="button" className="app-select" onClick={() => setSelectedId(Number(a.id))}>
                     <Icon size={18} />
                     <div>
                       <strong>{a.name}</strong>

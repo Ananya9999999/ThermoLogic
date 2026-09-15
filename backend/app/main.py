@@ -504,8 +504,18 @@ async def api_predict(
     if body.appliance_id is None and abs(body.t_min - 22) < 0.01 and abs(body.t_max - 26) < 0.01:
         t_min, t_max = rec["t_min"], rec["t_max"]
 
+    # Start above target so first predicted feels-like is not identical to setpoint
+    start_t = body.t_in0
+    mid = (t_min + t_max) / 2.0
+    if abs(start_t - mid) < 0.35:
+        start_t = mid + 2.5
+    elif start_t <= t_max:
+        # still nudge slightly warm so cooling action is visible
+        start_t = max(start_t, mid + 1.5)
+
     pred = get_predictor()
     points = pred.predict_horizon(
+
         t_outs,
         prices,
         phys,

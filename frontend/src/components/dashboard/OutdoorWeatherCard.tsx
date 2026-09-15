@@ -4,6 +4,7 @@ import {
   fetchByCity,
   fetchByCoords,
   getBrowserPosition,
+  reverseGeocode,
   type OutdoorWeather,
   type WeatherCondition,
 } from "./weatherService";
@@ -62,31 +63,40 @@ export default function OutdoorWeatherCard({
     }
   }, [apply]);
 
+  // Resolve GPS → reverse-geocode → weather
+  const resolveGps = useCallback(async () => {
+    const pos = await getBrowserPosition();
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    const label = await reverseGeocode(lat, lon);
+    queryRef.current = { lat, lon, city: label };
+    setStatus(label);
+    const w = await fetchByCoords(lat, lon, label);
+    apply(w);
+    return w;
+  }, [apply]);
+
   // Initial location resolve
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (useGeolocation) {
+        setStatus("Locating…");
         try {
-          const pos = await getBrowserPosition();
+          await resolveGps();
           if (cancelled) return;
-          queryRef.current = {
-            lat: pos.coords.latitude,
-            lon: pos.coords.longitude,
-            city: "Current location",
-          };
-          setStatus("Current location");
-          await load();
           return;
-        } catch {
-          /* fall through */
+        } catch (e) {
+          if (cancelled) return;
+          const msg = e instanceof Error ? e.message : "Location failed";
+          setError(msg);
         }
       }
       if (cancelled) return;
       queryRef.current = { city: defaultCity };
       setCityInput(defaultCity);
       setStatus(defaultCity);
-      setError("Using city search — allow location or pick another city.");
+      setError((prev) => prev || "Using city search — allow location (HTTPS + permission) or pick a city.");
       await load();
     })();
     const id = setInterval(() => load(), pollMs);
@@ -94,14 +104,16 @@ export default function OutdoorWeatherCard({
       cancelled = true;
       clearInterval(id);
     };
-  }, [useGeolocation, defaultCity, load, pollMs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useGeolocation, defaultCity, load, pollMs, resolveGps]);
 
   const onSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const q = cityInput.trim();
     if (!q) return;
     setStatus(`Searching ${q}…`);
-    queryRef.current = { city: q };
+    setError("");
+    queryRef.current = { city: q, lat: undefined, lon: undefined };
     try {
       apply(await fetchByCity(q));
     } catch (err) {
@@ -111,16 +123,11 @@ export default function OutdoorWeatherCard({
 
   const onGps = async () => {
     setStatus("Locating…");
+    setError("");
     try {
-      const pos = await getBrowserPosition();
-      queryRef.current = {
-        lat: pos.coords.latitude,
-        lon: pos.coords.longitude,
-        city: "Current location",
-      };
-      apply(await fetchByCoords(pos.coords.latitude, pos.coords.longitude));
-    } catch {
-      setError("Location denied — search by city name.");
+      await resolveGps();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Location denied — search by city name.");
     }
   };
 

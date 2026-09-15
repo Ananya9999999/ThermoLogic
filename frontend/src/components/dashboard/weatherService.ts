@@ -30,7 +30,36 @@ function mapWmo(code: number): WeatherCondition {
   return "Clouds";
 }
 
-export async function fetchByCoords(lat: number, lon: number, cityLabel = "Current location"): Promise<OutdoorWeather> {
+/** Reverse-geocode lat/lon to a human city label (Nominatim / OSM, no key). */
+export async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  try {
+    const url =
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}` +
+      `&format=json&addressdetails=1&accept-language=en`;
+    const r = await fetch(url, {
+      headers: { Accept: "application/json" },
+    });
+    if (!r.ok) return "Current location";
+    const j = await r.json();
+    const a = j.address || {};
+    const city =
+      a.city || a.town || a.village || a.municipality || a.suburb || a.county || a.state;
+    const region = a.state || a.region;
+    const cc = (a.country_code || "").toUpperCase();
+    const parts = [city, region !== city ? region : null, cc].filter(Boolean);
+    if (parts.length) return parts.join(", ");
+    if (j.display_name) return String(j.display_name).split(",").slice(0, 3).join(",").trim();
+  } catch {
+    /* ignore */
+  }
+  return "Current location";
+}
+
+export async function fetchByCoords(
+  lat: number,
+  lon: number,
+  cityLabel = "Current location"
+): Promise<OutdoorWeather> {
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m` +
@@ -64,15 +93,43 @@ export async function fetchByCity(city: string): Promise<OutdoorWeather> {
   return fetchByCoords(place.latitude, place.longitude, label);
 }
 
+function geoErrorMessage(err: GeolocationPositionError | Error): string {
+  if ("code" in err) {
+    if (err.code === 1) return "Location permission denied — search by city or click GPS again.";
+    if (err.code === 2) return "Location unavailable — try city search.";
+    if (err.code === 3) return "Location timed out — try city search or GPS again.";
+  }
+  return err.message || "Location failed";
+}
+
+/**
+ * Get browser position. Tries high accuracy first, then a faster low-accuracy fallback.
+ * Requires HTTPS (or localhost) and user permission.
+ */
 export function getBrowserPosition(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("Geolocation not supported"));
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("Geolocation not supported in this browser"));
       return;
     }
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
+
+    const onSuccess = (pos: GeolocationPosition) => resolve(pos);
+    const tryLowAccuracy = () => {
+      navigator.geolocation.getCurrentPosition(onSuccess, (err2) => {
+        reject(new Error(geoErrorMessage(err2)));
+      }, {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 5 * 60_000,
+      });
+    };
+
+    navigator.geolocation.getCurrentPosition(onSuccess, () => {
+      // High-accuracy failed — retry without it
+      tryLowAccuracy();
+    }, {
       enableHighAccuracy: true,
-      timeout: 12000,
+      timeout: 8000,
       maximumAge: 60_000,
     });
   });
