@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, BarChart, Bar,
@@ -13,7 +13,7 @@ import { useReveal } from "../hooks/useReveal";
 import "./LiveHub.css";
 import {
   ThermostatControlPanel,
-  ScheduleOccupancyOptimizer,
+  IndoorClimateCard,
 } from "../components/dashboard";
 
 const KIND_ICON: Record<string, typeof Snowflake> = {
@@ -30,6 +30,9 @@ export default function LiveHub() {
   const [liveWeather, setLiveWeather] = useState(true);
   const [catalog, setCatalog] = useState<{ acs: CatalogItem[]; refrigerators: CatalogItem[] }>({ acs: [], refrigerators: [] });
   const [pred, setPred] = useState<Awaited<ReturnType<typeof api.runPredict>> | null>(null);
+  const [predBusy, setPredBusy] = useState(false);
+  const predTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   const [dash, setDash] = useState<Awaited<ReturnType<typeof api.fetchDashboard>> | null>(null);
   const [error, setError] = useState("");
@@ -73,21 +76,10 @@ export default function LiveHub() {
   }, []);
 
   useEffect(() => {
-    if (!selectedId && !dash?.appliances?.length) return;
-    const id = selectedId || dash?.appliances?.[0]?.id;
-    if (!id) return;
-    api.runPredict({
-      mode,
-      use_live_weather: liveWeather,
-      hours: 48,
-      appliance_id: id,
-      policy: "mpc",
-    }).then(setPred).catch((e) => {
-      console.error("predict failed", e);
-      setPred(null);
-      setError(e instanceof Error ? e.message : "ML prediction failed");
-    });
-  }, [selectedId, mode, liveWeather, dash?.appliances]);
+    if (!dash?.appliances?.length && selectedId == null) return;
+    refreshPredict();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, mode, liveWeather, dash?.appliances?.length]);
 
 
   useEffect(() => {
@@ -96,6 +88,41 @@ export default function LiveHub() {
     }, 300);
     return () => clearTimeout(t);
   }, [calc]);
+
+
+  async function refreshPredict(opts?: {
+    tMin?: number;
+    tMax?: number;
+    setpoint?: number;
+    mode?: string;
+  }) {
+    const id = selectedId || dash?.appliances?.[0]?.id;
+    if (!id && !dash) return;
+    setPredBusy(true);
+    try {
+      const tMin = opts?.tMin;
+      const tMax = opts?.tMax;
+      const body: Record<string, unknown> = {
+        mode,
+        use_live_weather: liveWeather,
+        hours: 48,
+        policy: opts?.mode === "off" ? "reactive" : "mpc",
+      };
+      if (id) body.appliance_id = id;
+      if (tMin != null) body.t_min = tMin;
+      if (tMax != null) body.t_max = tMax;
+      // Seed indoor start near setpoint for realistic feels-like path
+      if (opts?.setpoint != null) body.t_in0 = opts.setpoint;
+      const r = await api.runPredict(body);
+      setPred(r);
+      setError("");
+    } catch (e) {
+      console.error("predict failed", e);
+      setError(e instanceof Error ? e.message : "ML prediction failed");
+    } finally {
+      setPredBusy(false);
+    }
+  }
 
   async function addAppliance(e: React.FormEvent) {
     e.preventDefault();
@@ -133,24 +160,33 @@ export default function LiveHub() {
 
       <section className="control-extras reveal" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
         <ThermostatControlPanel
-          onBandChange={(tMin, tMax) => {
+          predictedTempC={pred?.points?.[0] ? Number(pred.points[0].t_in_pred) : null}
+          predictedHumidity={pred?.points?.[0] ? Number(pred.points[0].humidity_pred) : null}
+          savingsKwh={pred?.summary?.energy_kwh != null ? Number(pred.summary.energy_kwh) : null}
+          savingsInr={pred?.summary?.cost_inr != null ? Number(pred.summary.cost_inr) : null}
+          busy={predBusy}
+          onBandChange={(tMin, tMax, setpoint, hvacMode) => {
             setBand({ tMin, tMax });
-            // Re-fetch prediction so charts reflect new comfort band
-            const id = selectedId || dash?.appliances?.[0]?.id;
-            if (id) {
-              api.runPredict({
-                mode,
-                use_live_weather: liveWeather,
-                hours: 48,
-                appliance_id: id,
-                policy: "mpc",
-                t_min: tMin,
-                t_max: tMax,
-              }).then(setPred).catch(() => {});
-            }
+            if (predTimer.current) clearTimeout(predTimer.current);
+            predTimer.current = setTimeout(() => {
+              refreshPredict({ tMin, tMax, setpoint, mode: hvacMode });
+            }, 350);
           }}
         />
-        <ScheduleOccupancyOptimizer />
+        <div className="card" style={{ padding: "0.5rem" }}>
+          <IndoorClimateCard
+            tempC={pred?.points?.[0] ? Number(pred.points[0].t_in_pred) : undefined}
+            humidity={pred?.points?.[0] ? Number(pred.points[0].humidity_pred) : undefined}
+            comfortMin={band.tMin}
+            comfortMax={band.tMax}
+            demoControls={false}
+          />
+          {!pred && (
+            <p style={{ fontSize: "0.85rem", color: "var(--text-soft)", padding: "0.5rem 1rem" }}>
+              {predBusy ? "Running ML forecast…" : "Select an appliance and wait for live ML indoor estimate."}
+            </p>
+          )}
+        </div>
       </section>
 
 

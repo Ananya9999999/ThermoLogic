@@ -174,20 +174,21 @@ class ThermalPredictor:
             u_heat = 0.0
 
             if policy == "mpc":
-                # Pre-cool gently before outdoor spike; throttle on expensive hours
+                # Track midpoint of comfort band; pre-cool before outdoor spike
                 target = (t_min + t_max) / 2.0
-                if peak_ahead > t_max + 2.5:
-                    target = t_min + 0.8
+                if peak_ahead > t_max + 2.0:
+                    target = t_min + 0.5
                 err = t - target
-                if err > 0.15 or t >= t_max - 0.15:
-                    need = min(1.0, max(0.15, err / 2.5 + (t_out - 28) / 25.0))
-                    if price >= 7.5 and t < t_max - 0.5:
-                        need *= 0.55
-                    elif price >= 7.5:
-                        need *= 0.75
+                if err > 0.1 or t >= t_max - 0.1:
+                    need = min(1.0, max(0.2, err / 2.0 + max(0.0, t_out - 30) / 20.0))
+                    if price >= 7.5 and t < t_max - 0.4:
+                        need *= 0.6
                     u_cool = need * u_max
-                elif t <= t_min + 0.2 and appliance.kind in ("heater", "heat_pump"):
-                    u_heat = 0.45 * appliance.u_heat_max_kw
+                elif t < t_min + 0.15:
+                    if appliance.kind in ("heater", "heat_pump"):
+                        u_heat = 0.5 * appliance.u_heat_max_kw
+                    else:
+                        u_cool = 0.0
             else:
                 # Reactive deadband
                 if t >= t_max:

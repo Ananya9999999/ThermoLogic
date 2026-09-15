@@ -186,3 +186,25 @@
 }
 .tcp-savings .box .k { font-size: 0.68rem; color: var(--stone); text-transform: uppercase; }
 .tcp-savings .box .v { font-size: 1.15rem; font-weight: 800; color: var(--olive-dark); margin-top: 0.15rem; }
+
+.tcp-live {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+.tcp-live .box {
+  background: rgba(107, 124, 62, 0.12);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+}
+.tcp-live .k {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+.tcp-live .v {
+  font-size: 1.1rem;
+  font-weight: 700;
+}

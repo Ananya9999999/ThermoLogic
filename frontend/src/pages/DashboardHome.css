@@ -78,8 +78,21 @@
   height: 100%;
 }
 
+.dash-cal {
+  min-height: 320px;
+  padding: 0.35rem;
+}
+
 @media (max-width: 800px) {
   .dash-two-col {
     grid-template-columns: 1fr;
   }
+}
+
+.dash-weather-only {
+  max-width: 720px;
+  margin: 0 auto 1.5rem;
+}
+.dash-weather-only .dash-weather {
+  min-height: 320px;
 }
