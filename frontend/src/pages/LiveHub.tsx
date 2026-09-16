@@ -13,7 +13,7 @@ import { useReveal } from "../hooks/useReveal";
 import "./LiveHub.css";
 import {
   ThermostatControlPanel,
-  IndoorClimateCard,
+  LiveControlPanel,
 } from "../components/dashboard";
 
 const KIND_ICON: Record<string, typeof Snowflake> = {
@@ -190,6 +190,14 @@ export default function LiveHub() {
         </p>
       </header>
 
+      <section className="reveal" style={{ marginBottom: "1.25rem" }}>
+        <LiveControlPanel
+          outdoorTemp={pred?.points?.[0] ? Number((pred.points[0] as { t_out?: number }).t_out) : 32}
+          outdoorHumidity={60}
+          city={pred?.city ?? undefined}
+        />
+      </section>
+
       <section className="control-extras reveal" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
         <ThermostatControlPanel
           predictedTempC={pred?.points?.[0] ? Number(pred.points[0].t_in_pred) : null}
@@ -205,20 +213,7 @@ export default function LiveHub() {
             }, 350);
           }}
         />
-        <div className="card" style={{ padding: "0.5rem" }}>
-          <IndoorClimateCard
-            tempC={pred?.points?.[0] ? Number(pred.points[0].t_in_pred) : undefined}
-            humidity={pred?.points?.[0] ? Number(pred.points[0].humidity_pred) : undefined}
-            comfortMin={band.tMin}
-            comfortMax={band.tMax}
-            demoControls={false}
-          />
-          {!pred && (
-            <p style={{ fontSize: "0.85rem", color: "var(--text-soft)", padding: "0.5rem 1rem" }}>
-              {predBusy ? "Running ML forecast…" : "Select an appliance and wait for live ML indoor estimate."}
-            </p>
-          )}
-        </div>
+
       </section>
 
 
@@ -373,43 +368,7 @@ export default function LiveHub() {
           )}
         </section>
       )}
-
-      {/* Calculator joined */}
-      <section className="card calc-join reveal">
-        <h2>Annual savings calculator</h2>
-        <p className="muted">Tune household assumptions — updates as you drag.</p>
-        <div className="calc-grid">
-          <div className="calc-sliders">
-            {([
-              ["tonnage", "Tonnage", 0.75, 3, 0.25],
-              ["iseer", "ISEER", 2.5, 6, 0.1],
-              ["hours_per_day", "Hours / day", 1, 16, 0.5],
-              ["days_per_year", "Days / year", 60, 365, 5],
-              ["tariff_inr_per_kwh", "Tariff ₹/kWh", 3, 15, 0.5],
-              ["savings_pct", "Savings %", 5, 30, 1],
-            ] as const).map(([key, label, min, max, step]) => (
-              <label key={key} className="field">
-                {label} ({calc[key]})
-                <input
-                  type="range"
-                  min={min}
-                  max={max}
-                  step={step}
-                  value={calc[key]}
-                  onChange={(e) => setCalc((c) => ({ ...c, [key]: +e.target.value }))}
-                />
-              </label>
-            ))}
-          </div>
-          <div className="calc-out">
-            <div className="out-tile"><span>₹ / year saved</span><strong>{calcResult ? calcResult.saved_inr_year.toLocaleString("en-IN") : "—"}</strong></div>
-            <div className="out-tile"><span>kWh saved</span><strong>{calcResult?.saved_kwh_year ?? "—"}</strong></div>
-            <div className="out-tile"><span>tCO₂ avoided</span><strong>{calcResult?.co2_tons_year ?? "—"}</strong></div>
-          </div>
-        </div>
-      </section>
-
-      {showAdd && (
+{showAdd && (
         <div className="modal-backdrop" onClick={() => setShowAdd(false)}>
           <form className="card modal" onClick={(e) => e.stopPropagation()} onSubmit={addAppliance}>
             <h2>Add appliance</h2>

@@ -4,5 +4,3 @@ export { default as ThermostatControlPanel } from "./ThermostatControlPanel";
 export { default as ScheduleOccupancyOptimizer } from "./ScheduleOccupancyOptimizer";
 export { default as LiveControlPanel } from "./LiveControlPanel";
 export { calculateHeatIndex, comfortStatus } from "./heatIndex";
-
-export { default as WeatherScene, resolveScene, SCENE_THEME } from "./WeatherScene";

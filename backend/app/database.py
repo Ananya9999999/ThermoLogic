@@ -58,7 +58,40 @@ def init_db() -> None:
             conn.execute("ALTER TABLE appliances ADD COLUMN power_w REAL NOT NULL DEFAULT 1400")
         if "catalog_id" not in cols:
             conn.execute("ALTER TABLE appliances ADD COLUMN catalog_id TEXT")
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS comfort_profiles (
+                user_id INTEGER NOT NULL,
+                period TEXT NOT NULL,
+                feels_min REAL NOT NULL,
+                feels_max REAL NOT NULL,
+                raw_temp REAL NOT NULL DEFAULT 24.0,
+                humidity REAL NOT NULL DEFAULT 50.0,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (user_id, period),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS comfort_overrides_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                period TEXT NOT NULL,
+                feels_min REAL NOT NULL,
+                feels_max REAL NOT NULL,
+                room_temp REAL,
+                room_humidity REAL,
+                outdoor_temp REAL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
         conn.commit()
+
 
 
 @contextmanager
@@ -205,3 +238,96 @@ def _row_appliance(row: sqlite3.Row) -> dict:
     except json.JSONDecodeError:
         d["meta"] = {}
     return d
+
+
+# ----- Time-of-day comfort profiles (14-day memory via overrides log) -----
+
+PERIODS = ("early_morning", "morning", "noon", "evening", "night")
+
+DEFAULT_PROFILES = {
+    "early_morning": {"feels_min": 23.0, "feels_max": 25.5, "raw_temp": 24.0, "humidity": 50.0},
+    "morning": {"feels_min": 23.5, "feels_max": 26.0, "raw_temp": 24.5, "humidity": 50.0},
+    "noon": {"feels_min": 24.0, "feels_max": 26.5, "raw_temp": 25.0, "humidity": 48.0},
+    "evening": {"feels_min": 23.5, "feels_max": 26.0, "raw_temp": 24.5, "humidity": 52.0},
+    "night": {"feels_min": 23.0, "feels_max": 25.5, "raw_temp": 24.0, "humidity": 55.0},
+}
+
+
+def get_comfort_profiles(user_id: int) -> dict[str, dict[str, float]]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT period, feels_min, feels_max, raw_temp, humidity FROM comfort_profiles WHERE user_id = ?",
+            (user_id,),
+        ).fetchall()
+    out = {p: dict(DEFAULT_PROFILES[p]) for p in PERIODS}
+    for r in rows:
+        out[r["period"]] = {
+            "feels_min": float(r["feels_min"]),
+            "feels_max": float(r["feels_max"]),
+            "raw_temp": float(r["raw_temp"]),
+            "humidity": float(r["humidity"]),
+        }
+    return out
+
+
+def upsert_comfort_profiles(user_id: int, profiles: dict[str, dict]) -> dict[str, dict[str, float]]:
+    with get_conn() as conn:
+        for period, data in profiles.items():
+            if period not in PERIODS:
+                continue
+            conn.execute(
+                """
+                INSERT INTO comfort_profiles (user_id, period, feels_min, feels_max, raw_temp, humidity, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(user_id, period) DO UPDATE SET
+                    feels_min=excluded.feels_min,
+                    feels_max=excluded.feels_max,
+                    raw_temp=excluded.raw_temp,
+                    humidity=excluded.humidity,
+                    updated_at=datetime('now')
+                """,
+                (
+                    user_id,
+                    period,
+                    float(data["feels_min"]),
+                    float(data["feels_max"]),
+                    float(data.get("raw_temp", 24.0)),
+                    float(data.get("humidity", 50.0)),
+                ),
+            )
+            # Log override for 14-day memory
+            conn.execute(
+                """
+                INSERT INTO comfort_overrides_log (user_id, period, feels_min, feels_max)
+                VALUES (?, ?, ?, ?)
+                """,
+                (user_id, period, float(data["feels_min"]), float(data["feels_max"])),
+            )
+        # Prune older than 14 days
+        conn.execute(
+            "DELETE FROM comfort_overrides_log WHERE created_at < datetime('now', '-14 days')"
+        )
+    return get_comfort_profiles(user_id)
+
+
+def log_live_override(
+    user_id: int,
+    period: str,
+    feels_min: float,
+    feels_max: float,
+    room_temp: float | None = None,
+    room_humidity: float | None = None,
+    outdoor_temp: float | None = None,
+) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO comfort_overrides_log
+                (user_id, period, feels_min, feels_max, room_temp, room_humidity, outdoor_temp)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, period, feels_min, feels_max, room_temp, room_humidity, outdoor_temp),
+        )
+        conn.execute(
+            "DELETE FROM comfort_overrides_log WHERE created_at < datetime('now', '-14 days')"
+        )

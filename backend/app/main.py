@@ -699,3 +699,137 @@ def api_forecast_bias_observe(
     _bias.observe(lead_time_hours, forecast_value, actual_value, var=var)
     return {"ok": True, "buckets": _bias.snapshot()}
 
+
+
+# ----- Live dynamic control + time-of-day profiles -----
+from .live_control import (
+    decide_action,
+    resolve_comfort_band,
+    build_day_plan,
+    period_for_hour,
+    DEFAULT_PROFILES,
+)
+from .database import get_comfort_profiles, upsert_comfort_profiles, log_live_override
+from .heat_index import calculate_heat_index
+from .models import (
+    LiveControlRequest,
+    LiveControlResponse,
+    ComfortProfilesUpdate,
+    ComfortProfilesResponse,
+    HeatIndexRequest,
+    HeatIndexResponse,
+)
+
+
+@app.post("/api/heat-index", response_model=HeatIndexResponse)
+def api_heat_index(body: HeatIndexRequest) -> HeatIndexResponse:
+    feels = calculate_heat_index(body.temp_c, body.humidity)
+    return HeatIndexResponse(temp_c=body.temp_c, humidity=body.humidity, feels_like_c=feels)
+
+
+@app.post("/api/live-control", response_model=LiveControlResponse)
+async def api_live_control(
+    body: LiveControlRequest,
+    user: dict | None = Depends(get_current_user),
+) -> LiveControlResponse:
+    """
+    Live dynamic decision: re-runs on every weather change or user force.
+    Uses time-of-day profiles + short forecast so the thermostat anticipates
+    spikes instead of reacting after the room has already left the comfort band.
+    """
+    profiles = None
+    if user:
+        try:
+            profiles = get_comfort_profiles(user["id"])
+        except Exception:
+            profiles = None
+
+    lo, hi, period = resolve_comfort_band(
+        profiles,
+        hour=body.hour,
+        comfort_pref=body.comfort_pref,
+        force_feels_min=body.force_feels_min,
+        force_feels_max=body.force_feels_max,
+    )
+
+    forecast_pts: list[dict] = []
+    day_plan: list[dict] = []
+    if body.include_forecast:
+        try:
+            weather = await get_weather(
+                settings,
+                use_live=True,
+                lat=body.lat,
+                lon=body.lon,
+                city=body.city,
+                hours=24,
+            )
+            for p in weather.points[:6]:
+                forecast_pts.append(
+                    {"t_out": p.t_out, "humidity_out": p.humidity_out or 55.0}
+                )
+            day_plan = build_day_plan(profiles, weather.points, body.comfort_pref)
+        except Exception:
+            forecast_pts = []
+            day_plan = []
+
+    force_mode = body.force_mode
+    if force_mode == "auto":
+        force_mode = None
+
+    decision = decide_action(
+        room_temp_c=body.room_temp_c,
+        room_humidity=body.room_humidity,
+        feels_min=lo,
+        feels_max=hi,
+        outdoor_temp=body.outdoor_temp,
+        outdoor_humidity=body.outdoor_humidity,
+        forecast_next_3h=(None if getattr(body, "industrial", False) else (forecast_pts or None)),
+        user_force_mode=force_mode,
+        user_force_setpoint=body.force_setpoint,
+        industrial=bool(getattr(body, "industrial", False)),
+    )
+    decision["period"] = period
+    decision["day_plan"] = day_plan
+
+    if user and (body.force_setpoint is not None or body.force_feels_min is not None):
+        try:
+            log_live_override(
+                user["id"],
+                period,
+                lo,
+                hi,
+                room_temp=body.room_temp_c,
+                room_humidity=body.room_humidity,
+                outdoor_temp=body.outdoor_temp,
+            )
+        except Exception:
+            pass
+
+    return LiveControlResponse(**decision)
+
+
+@app.get("/api/comfort-profiles", response_model=ComfortProfilesResponse)
+def api_get_comfort_profiles(user: dict = Depends(get_current_user)) -> ComfortProfilesResponse:
+    profiles = get_comfort_profiles(user["id"])
+    from datetime import datetime
+    period = period_for_hour(datetime.now().astimezone().hour)
+    return ComfortProfilesResponse(profiles=profiles, current_period=period, source="saved")
+
+
+@app.put("/api/comfort-profiles", response_model=ComfortProfilesResponse)
+def api_put_comfort_profiles(
+    body: ComfortProfilesUpdate,
+    user: dict = Depends(get_current_user),
+) -> ComfortProfilesResponse:
+    payload: dict = {}
+    for key in ("early_morning", "morning", "noon", "evening", "night"):
+        val = getattr(body, key, None)
+        if val is not None:
+            payload[key] = val.model_dump()
+    if not payload:
+        raise HTTPException(status_code=400, detail="Provide at least one period profile")
+    profiles = upsert_comfort_profiles(user["id"], payload)
+    from datetime import datetime
+    period = period_for_hour(datetime.now().astimezone().hour)
+    return ComfortProfilesResponse(profiles=profiles, current_period=period, source="saved")

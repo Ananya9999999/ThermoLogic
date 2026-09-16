@@ -198,3 +198,90 @@ export async function runPredict(body: Record<string, unknown>) {
     })
   );
 }
+
+// ----- Live dynamic control & comfort profiles -----
+
+export type LiveControlBody = {
+  room_temp_c: number;
+  room_humidity: number;
+  outdoor_temp?: number | null;
+  outdoor_humidity?: number | null;
+  comfort_pref?: string;
+  force_mode?: "auto" | "cool" | "dry" | "heat" | "idle" | "off" | null;
+  force_setpoint?: number | null;
+  force_feels_min?: number | null;
+  force_feels_max?: number | null;
+  hour?: number | null;
+  include_forecast?: boolean;
+  industrial?: boolean;
+  lat?: number | null;
+  lon?: number | null;
+  city?: string | null;
+};
+
+export type LiveControlResult = {
+  mode: string;
+  power_fraction: number;
+  target_dry_bulb_c: number;
+  current_feels_c: number;
+  feels_min: number;
+  feels_max: number;
+  room_humidity: number;
+  reason: string;
+  energy_hint: string;
+  plan_next_6h: { hour_offset: number; mode: string; target_feels: number; power: number }[];
+  period: string;
+  day_plan: {
+    hour: number;
+    period: string;
+    feels_min: number;
+    feels_max: number;
+    pred_feels: number;
+    mode: string;
+    power: number;
+    t_out: number;
+    rh_out: number;
+  }[];
+  decided_at: string;
+};
+
+export async function runLiveControl(body: LiveControlBody) {
+  return handle<LiveControlResult>(
+    await fetch(`${API_URL}/api/live-control`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    })
+  );
+}
+
+export async function fetchHeatIndex(temp_c: number, humidity: number) {
+  return handle<{ temp_c: number; humidity: number; feels_like_c: number }>(
+    await fetch(`${API_URL}/api/heat-index`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ temp_c, humidity }),
+    })
+  );
+}
+
+export type ComfortProfiles = Record<
+  string,
+  { feels_min: number; feels_max: number; raw_temp: number; humidity: number }
+>;
+
+export async function fetchComfortProfiles() {
+  return handle<{ profiles: ComfortProfiles; current_period: string; source: string }>(
+    await fetch(`${API_URL}/api/comfort-profiles`, { headers: authHeaders() })
+  );
+}
+
+export async function saveComfortProfiles(profiles: Partial<ComfortProfiles>) {
+  return handle<{ profiles: ComfortProfiles; current_period: string; source: string }>(
+    await fetch(`${API_URL}/api/comfort-profiles`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(profiles),
+    })
+  );
+}

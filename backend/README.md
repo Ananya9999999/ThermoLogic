@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ThermoLogic Backend
 
 FastAPI service: weather, simulation, energy calculator, JWT auth.
@@ -29,3 +30,6 @@ uvicorn app.main:app --reload --port 8000
 ## Auth
 
 SQLite file `thermologic.db` stores users. Passwords hashed with bcrypt. JWT secret via `JWT_SECRET`.
+=======
+# ThermoLogic
+>>>>>>> 4d217a9f74d3ce76d1a8be779dc3f71d888d86d1

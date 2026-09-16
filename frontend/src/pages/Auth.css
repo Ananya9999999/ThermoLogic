@@ -67,3 +67,33 @@
   font-size: 0.9rem;
   text-align: center;
 }
+
+.auth-kind {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 520px) {
+  .auth-kind { grid-template-columns: 1fr; }
+}
+.auth-kind button {
+  text-align: left;
+  border: 1px solid #d4cbcc;
+  background: #fff;
+  border-radius: 0.85rem;
+  padding: 0.85rem 0.9rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: #3d3428;
+}
+.auth-kind button.on {
+  border-color: #8d9b6a;
+  background: #f4f7ee;
+  box-shadow: 0 0 0 2px rgba(141, 155, 106, 0.25);
+}
+.auth-kind button span { font-weight: 700; font-size: 0.95rem; }
+.auth-kind button small { color: #8a7c74; font-size: 0.75rem; line-height: 1.3; }
+.auth-kind button svg { margin-bottom: 0.25rem; color: #6b5a4a; }

@@ -1,0 +1,39 @@
+.corp-dash .page-header { margin-bottom: 1.25rem; }
+.corp-block { padding: 1.25rem 1.4rem; margin-bottom: 1rem; }
+.corp-block h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+.corp-block h3 { margin: 0.75rem 0 0.4rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: #8a7c74; }
+.corp-note { color: #6b5a4a; font-size: 0.9rem; margin: 0 0 0.85rem; line-height: 1.45; }
+.corp-field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.75rem; font-size: 0.88rem; }
+.corp-field input, .corp-field select {
+  padding: 0.5rem 0.65rem; border: 1px solid #d4cbcc; border-radius: 0.5rem; font-size: 0.95rem;
+}
+.corp-tags { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.5rem; }
+.corp-tags button {
+  border: 1px solid #d4cbcc; background: #fff; border-radius: 999px; padding: 0.4rem 0.75rem;
+  font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem;
+}
+.corp-tags button.on { background: #e8f0e0; border-color: #8d9b6a; font-weight: 600; }
+.corp-zone-list { list-style: none; padding: 0; margin: 0; }
+.corp-zone-list li {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(107, 76, 50, 0.08);
+}
+.corp-zone-link {
+  flex: 1; text-align: left; border: none; background: none; cursor: pointer;
+  display: flex; flex-direction: column; gap: 0.15rem;
+}
+.corp-zone-link span { font-size: 0.8rem; color: #6b5a4a; }
+.corp-icon-btn { border: none; background: transparent; cursor: pointer; color: #8a5a4a; }
+.corp-grid-2 {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem;
+}
+@media (max-width: 600px) { .corp-grid-2 { grid-template-columns: 1fr; } }
+.corp-checks {
+  display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; margin: 0.5rem 0 1rem; font-size: 0.88rem;
+}
+.corp-actions { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-top: 0.5rem; }
+.corp-save-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
+  margin: 1rem 0 2rem;
+}
+.corp-saved { color: #4a6a3a; font-weight: 600; font-size: 0.9rem; }

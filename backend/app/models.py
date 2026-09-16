@@ -242,3 +242,71 @@ class PredictResponse(BaseModel):
     research: list[dict[str, Any]] = []
     points: list[dict[str, Any]]
     summary: dict[str, Any]
+
+
+# ----- Live control & time-of-day comfort profiles -----
+
+class LiveControlRequest(BaseModel):
+    room_temp_c: float = Field(26.0, ge=-100, le=100)
+    room_humidity: float = Field(55.0, ge=0, le=100)
+    outdoor_temp: Optional[float] = None
+    outdoor_humidity: Optional[float] = None
+    comfort_pref: str = "comfortable"
+    force_mode: Optional[Literal["auto", "cool", "dry", "heat", "idle", "off"]] = None
+    force_setpoint: Optional[float] = Field(None, ge=-100, le=100)
+    force_feels_min: Optional[float] = Field(None, ge=-100, le=100)
+    force_feels_max: Optional[float] = Field(None, ge=-100, le=100)
+    hour: Optional[int] = Field(None, ge=0, le=23)
+    include_forecast: bool = True
+    industrial: bool = False
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    city: Optional[str] = None
+
+
+class LiveControlResponse(BaseModel):
+    mode: str
+    power_fraction: float
+    target_dry_bulb_c: float
+    current_feels_c: float
+    feels_min: float
+    feels_max: float
+    room_humidity: float
+    reason: str
+    energy_hint: str
+    plan_next_6h: list[dict[str, Any]]
+    period: str = ""
+    day_plan: list[dict[str, Any]] = []
+    decided_at: str = ""
+
+
+class PeriodProfile(BaseModel):
+    feels_min: float = Field(..., ge=-100, le=100)
+    feels_max: float = Field(..., ge=-100, le=100)
+    raw_temp: float = Field(24.0, ge=-100, le=100)
+    humidity: float = Field(50.0, ge=0, le=100)
+
+
+class ComfortProfilesUpdate(BaseModel):
+    early_morning: Optional[PeriodProfile] = None
+    morning: Optional[PeriodProfile] = None
+    noon: Optional[PeriodProfile] = None
+    evening: Optional[PeriodProfile] = None
+    night: Optional[PeriodProfile] = None
+
+
+class ComfortProfilesResponse(BaseModel):
+    profiles: dict[str, dict[str, float]]
+    current_period: str
+    source: str = "defaults_or_saved"
+
+
+class HeatIndexRequest(BaseModel):
+    temp_c: float
+    humidity: float
+
+
+class HeatIndexResponse(BaseModel):
+    temp_c: float
+    humidity: float
+    feels_like_c: float

@@ -1,6 +1,7 @@
 import { Outlet, Link } from "react-router-dom";
 import Navbar from "./Navbar";
 import FloatingShapes from "./FloatingShapes";
+import AmbientBackdrop from "./AmbientBackdrop";
 import { useAuth } from "../context/AuthContext";
 import "./Layout.css";
 
@@ -8,6 +9,7 @@ export default function Layout() {
   const { user } = useAuth();
   return (
     <div className="layout">
+      <AmbientBackdrop />
       <FloatingShapes />
       <Navbar />
       <main className="main">

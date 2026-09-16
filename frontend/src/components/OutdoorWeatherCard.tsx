@@ -273,7 +273,7 @@ export default function OutdoorWeatherCard({
         {error && <div className="owc-error">{error}</div>}
         <div className="owc-top">
           <div>
-            <div className="owc-label" title="Open-Meteo apparent temperature (includes humidity & wind). May differ from other apps.">Outdoor feels-like</div>
+            <div className="owc-label">Outdoor feels-like</div>
             <div className="owc-feels">
               {typeof feels === "number" ? feels.toFixed(1) : feels}
               <span>°C</span>

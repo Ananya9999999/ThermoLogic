@@ -1,0 +1,66 @@
+.ambient-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: linear-gradient(160deg, #f7ebe3 0%, #f3e6dc 40%, #efe0d4 100%);
+}
+.ab-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.45;
+  animation: ab-drift 48s ease-in-out infinite;
+}
+.ab1 {
+  width: 42vw;
+  height: 42vw;
+  top: -10%;
+  right: -8%;
+  background: #d4a574;
+  animation-duration: 55s;
+}
+.ab2 {
+  width: 35vw;
+  height: 35vw;
+  bottom: -12%;
+  left: -10%;
+  background: #e8c4a8;
+  animation-duration: 62s;
+  animation-direction: reverse;
+}
+.ab3 {
+  width: 28vw;
+  height: 28vw;
+  top: 40%;
+  left: 35%;
+  background: #f0d5c4;
+  opacity: 0.35;
+  animation-duration: 70s;
+}
+.ab-line {
+  position: absolute;
+  height: 2px;
+  width: 60vw;
+  background: linear-gradient(90deg, transparent, rgba(196, 120, 90, 0.22), transparent);
+  border-radius: 2px;
+  animation: ab-slide 80s linear infinite;
+}
+.ab-line.l1 { top: 22%; left: -20%; transform: rotate(-8deg); }
+.ab-line.l2 { top: 55%; left: -10%; transform: rotate(6deg); animation-duration: 95s; animation-direction: reverse; }
+.ab-line.l3 { top: 78%; left: -15%; transform: rotate(-4deg); animation-duration: 110s; }
+@keyframes ab-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(3%, 2%) scale(1.04); }
+  66% { transform: translate(-2%, 3%) scale(0.97); }
+}
+@keyframes ab-slide {
+  from { transform: translateX(0) rotate(var(--r, -8deg)); }
+  to { transform: translateX(30vw) rotate(var(--r, -8deg)); }
+}
+/* When weather scene is active, hide generic ambient so weather owns the page */
+html[data-weather-scene] .ambient-backdrop {
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}

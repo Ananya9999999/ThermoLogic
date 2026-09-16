@@ -1,109 +1,170 @@
-.bento-page {
-  min-height: calc(100vh - 4rem);
-  margin: -2.25rem -0.5rem 0;
-  padding: 1.5rem 1.25rem 3rem;
-  background:
-    radial-gradient(ellipse 90% 60% at 10% 0%, rgba(107, 124, 62, 0.18), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 100% 10%, rgba(107, 76, 50, 0.1), transparent 50%),
-    #f5f1e8;
-  color: #2c2416;
-}
-
-.bento-page .page-header h1 { color: #2c2416; }
-.bento-page .page-header p { color: #5c5346; }
-
-.dash-two-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  max-width: 1100px;
-  margin: 0 auto 1.5rem;
-  align-items: stretch;
-}
-
-.dash-two-col > .bento-cell {
-  min-height: 320px;
+.dash-loc {
   display: flex;
-  flex-direction: column;
-}
-
-.dash-two-col > .bento-cell > * {
-  flex: 1;
-}
-
-.bento-cell {
-  border-radius: 1.25rem;
-  overflow: hidden;
-  background: rgba(255, 253, 248, 0.9);
-  border: 1px solid rgba(107, 76, 50, 0.12);
-  box-shadow: 0 8px 28px rgba(44, 36, 22, 0.08);
-  min-height: 280px;
-}
-
-.dash-indoor {
-  display: flex;
-  flex-direction: column;
-  padding: 0.5rem;
-}
-
-.dash-indoor-loading {
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  min-height: 260px;
-  padding: 1.5rem;
-  text-align: center;
-  color: #5c5346;
+  gap: 0.5rem;
+  max-width: 420px;
+  margin-bottom: 1.25rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
-
-.dash-status {
-  font-size: 0.8rem;
-  color: #8a7e6c;
-  padding: 0.5rem 1rem 0.75rem;
-  margin: 0;
+.dash-loc input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.95rem;
+  outline: none;
 }
-
+.dash-loc input::placeholder {
+  color: inherit;
+  opacity: 0.55;
+}
+.dash-loc-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
 .dash-err {
+  color: #7f1d1d;
+  background: rgba(254, 226, 226, 0.7);
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.5rem;
   font-size: 0.85rem;
-  color: #8f5b34;
-  padding: 0 1rem 0.75rem;
-  margin: 0;
+  margin: 0 0 0.75rem;
+  max-width: 28rem;
 }
 
-.bento-link {
+.dash-hero {
+  margin-bottom: 1.5rem;
+}
+.dash-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  opacity: 0.85;
+}
+.dash-hero h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 800;
+  color: inherit;
+}
+.dash-place {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  opacity: 0.9;
+  font-size: 0.95rem;
+}
+.dash-clock {
+  margin-left: 0.5rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: flex-end;
+  margin-bottom: 2rem;
+}
+.dash-feels .label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.8;
+  margin-bottom: 0.25rem;
+}
+.dash-feels .value {
+  font-size: clamp(3.5rem, 8vw, 5.5rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.dash-feels .value small {
+  font-size: 0.4em;
+  font-weight: 600;
+  margin-left: 0.15rem;
+}
+.dash-feels .cond {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   margin-top: 0.5rem;
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+.dash-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.dash-metrics .m {
+  min-width: 7rem;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.dash-metrics .m .k {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.dash-metrics .m strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+/* Calendar horizontal glass strip */
+.dash-cal-strip {
+  margin-bottom: 1.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.1);
+  overflow-x: auto;
+}
+.dash-cal-strip > * {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.dash-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(10px);
+  color: inherit;
   font-weight: 600;
-  color: #6b4c32;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  transition: transform 0.2s ease, background 0.2s ease;
 }
-
-.bento-page .owc,
-.bento-page .icc {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  height: 100%;
-}
-
-.dash-cal {
-  min-height: 320px;
-  padding: 0.35rem;
-}
-
-@media (max-width: 800px) {
-  .dash-two-col {
-    grid-template-columns: 1fr;
-  }
-}
-
-.dash-weather-only {
-  max-width: 720px;
-  margin: 0 auto 1.5rem;
-}
-.dash-weather-only .dash-weather {
-  min-height: 320px;
+.dash-cta:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.58);
 }

@@ -5,6 +5,7 @@ import "./Navbar.css";
 
 export default function Navbar() {
   const { user, logout, loading } = useAuth();
+  const isCorporate = typeof window !== "undefined" && localStorage.getItem("tl_account_kind") === "corporate";
 
   return (
     <header className="navbar">
@@ -21,9 +22,22 @@ export default function Navbar() {
             <NavLink to="/app" end className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
               Dashboard
             </NavLink>
+            {isCorporate && (
+              <NavLink to="/app/profiles" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+                Profiles
+              </NavLink>
+            )}
             <NavLink to="/app/control" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
               Control Centre
             </NavLink>
+            <NavLink to="/app/calculator" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              Calculator
+            </NavLink>
+            {isCorporate && (
+              <NavLink to="/app/corporate" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+                Corporate
+              </NavLink>
+            )}
             <NavLink to="/impact" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
               Impact
             </NavLink>
